@@ -1,0 +1,24 @@
+MAP
+  NAME "RasterMap"
+  SIZE 600 400
+  EXTENT -88.707293 40.994755 -87.524163 42.496202 
+  UNITS  dd
+  IMAGETYPE png
+  PROJECTION
+  "init=epsg:4326"
+  END
+
+  WEB
+    METADATA
+      wms_enable_request "*"
+    END
+  END
+
+  LAYER
+    NAME "SimMap"
+    TYPE RASTER
+    STATUS DEFAULT
+    DATA %3
+  
+  END
+END
