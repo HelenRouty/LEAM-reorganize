@@ -15,7 +15,7 @@ MAP
   END
 
   LAYER
-    NAME "SimMap"
+    NAME "final4"
     TYPE RASTER
     STATUS DEFAULT
     DATA %3

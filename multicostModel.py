@@ -127,7 +127,7 @@ def multicost4travelcost(centersMap, outputname, maxcostmin):
     exportRaster(outputname)
 
 ################## Caculate Roads Attraction #################################
-######  Required files in GRASS: otherroads ######
+######  Required files in GRASS: otherroads #########
 def roadsTravelCost(roadsClassName_list):
     """This takes about 3min.
     """
@@ -174,6 +174,19 @@ def transportAttraction(layername):
                                +str(W_ROAD)+"/(road_cost+0.1) + "
                                +str(W_RAMP)+"/(ramp_cost+0.1) + "
                                +str(W_INTERSECT)+"/(intersect_cost+0.1)")
+##################### Water and Forest Attraction ########################
+######  Required files in GRASS: landcover #########
+def watercondstr():
+    return "(landcover==11)"
+def forestcondstr():
+    """41=deciduous forest, 42=evergreen forest, 43=mixed forest, 91=woody wetland"""
+    return "(landcover==41 || landcover==42 || landcover==43 || landcover==91)"
+def bufferAttraction(layername, layercond_str):
+    grass.mapcalc('int1=if' + layercond_str)
+    grass.run_command('r.buffer', flags='z', input='int1', output='int2',
+       distances=[30,60,90,120,150,180,210,240,270,300,330,360])
+    grass.mapcalc(layername+'=if(isnull(int2),390,(int2-1)*30)')
+    # grass.run_command('g.remove', rast=["int1","int2"])
 
 def main():
     grassConfig('grass', 'model')
@@ -212,7 +225,12 @@ def main():
     # print "export transport attraction ascii map..."
     # export_asciimap("transport_attr")
     # exportRaster("transport_attr")
-
+    # print "--generate water attraction map..."
+    # bufferAttraction("water_attr", watercondstr())
+    # exportRaster("water_attr")
+    # print "--generate forest attraction map..."
+    # bufferAttraction("forest_attr", forestcondstr())
+    # exportRaster("forest_attr")
 
      
 if __name__ == "__main__":
