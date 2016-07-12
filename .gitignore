@@ -1,0 +1,15 @@
+Data
+Data/*
+grass
+grass/*
+Output
+Output/*
+Download
+Download/*
+Log
+Log/*
+*.pyc
+*.make
+*.log
+*.xml
+startup.py

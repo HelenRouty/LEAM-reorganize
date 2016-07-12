@@ -15,7 +15,7 @@ MAP
   END
 
   LAYER
-    NAME "SimMap"
+    NAME "final4"
     TYPE RASTER
     STATUS DEFAULT
     DATA %3
@@ -24,7 +24,111 @@ MAP
       NAME "class0"
       EXPRESSION ([pixel] == 0)
       STYLE
-        COLOR 0 77 168
+        COLOR 50 50 255
+      END
+    END
+
+    CLASS
+      NAME "class1"
+      EXPRESSION (([pixel] > 0) && ([pixel] <= 194))
+      STYLE
+        COLOR 50 101 255
+      END
+    END
+
+    CLASS
+      NAME "class2"
+      EXPRESSION (([pixel] > 194) && ([pixel] <= 298))
+      STYLE
+        COLOR 50 152 255
+      END
+    END
+
+    CLASS
+      NAME "class3"
+      EXPRESSION (([pixel] > 298) && ([pixel] <= 366))
+      STYLE
+        COLOR 50 203 255
+      END
+    END
+
+    CLASS
+      NAME "class4"
+      EXPRESSION (([pixel] > 366) && ([pixel] <= 450))
+      STYLE
+        COLOR 79 255 218
+      END
+    END
+
+    CLASS
+      NAME "class5"
+      EXPRESSION (([pixel] > 450) && ([pixel] <= 547))
+      STYLE
+        COLOR 108 255 182
+      END
+    END
+
+    CLASS
+      NAME "class6"
+      EXPRESSION (([pixel] > 547) && ([pixel] <= 677))
+      STYLE
+        COLOR 137 255 145
+      END
+    END
+
+    CLASS
+      NAME "class7"
+      EXPRESSION (([pixel] > 677) && ([pixel] <= 877))
+      STYLE
+        COLOR 167 255 109
+      END
+    END
+
+    CLASS
+      NAME "class8"
+      EXPRESSION (([pixel] > 877) && ([pixel] <= 1275))
+      STYLE
+        COLOR 196 255 72
+      END
+    END
+
+    CLASS
+      NAME "class9"
+      EXPRESSION (([pixel] > 1275) && ([pixel] <= 1905))
+      STYLE
+        COLOR 225 255 36
+      END
+    END
+
+    CLASS
+      NAME "class10"
+      EXPRESSION (([pixel] > 1905) && ([pixel] <= 2742))
+      STYLE
+        COLOR 255 203 0
+      END
+    END
+
+    CLASS
+      NAME "class11"
+      EXPRESSION (([pixel] > 2742) && ([pixel] <= 4068))
+      STYLE
+        COLOR 255 152 0
+      END
+    END
+
+    CLASS
+      NAME "class12"
+      EXPRESSION (([pixel] > 4068) && ([pixel] <= 7500))
+      STYLE
+        COLOR 255 101 0
+      END
+    END
+
+    CLASS
+      NAME "class13"
+      EXPRESSION ([pixel] > 7500)
+      STYLE
+        COLOR 255 50 0
       END
     END
 

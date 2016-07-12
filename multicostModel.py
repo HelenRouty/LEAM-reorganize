@@ -165,8 +165,6 @@ def intersectionTravelCost():
             output="intersect_cost")
     grass.run_command('g.remove', rast=["int1","int2", "intersection"])
 
-    exportRaster("intersect_cost")
-    export_asciimap("intersect_cost")
 
 def transportAttraction(layername):
     grass.mapcalc(layername+"="+str(W_STATERD)+"/(staterd_cost+0.1) + "
@@ -186,7 +184,42 @@ def bufferAttraction(layername, layercond_str):
     grass.run_command('r.buffer', flags='z', input='int1', output='int2',
        distances=[30,60,90,120,150,180,210,240,270,300,330,360])
     grass.mapcalc(layername+'=if(isnull(int2),390,(int2-1)*30)')
-    # grass.run_command('g.remove', rast=["int1","int2"])
+    grass.run_command('g.remove', rast=["int1","int2"])
+
+##################### Slope Attraction ########################
+######  Required files in GRASS: dem #########
+def slopeAttraction():
+    grass.run_command('r.slope.aspect', elevation="demBase", slope="int1")
+    grass.mapcalc('slope_att=round(int1)')
+    grass.run_command('g.remove', rast="int1")
+
+##################### Transform Attrmaps to scores ######################
+####### Required files: sfa files in ./SFA folder. ##########
+def att2score(attname, scorename):
+    """Transform attractiveness map to a score map using SFA files.
+       @input: attractiveness map without _att
+       @output: result score map name
+    """
+    grass.run_command('r.recode', input=attname+"_att", output=scorename+"_score", 
+                                  rules="SFA/"+scorename+".sfa")
+    return attname+"_score"
+
+def genProbmap(attscorelist):
+    """ From attrmaps to generate probmap.
+        @input: a list of (attname, scorename) pairs. 
+               For example, 
+               attlist = [pop, pop, emp, emp, forest]
+               scorelist = [pop_com, pop_res, emp_com, emp_res, forest]
+               attscorelist = zip(attlist, scorelist)
+    """
+    grass.mapcalc('probmap=1.0')
+    attlist =[pop, pop, emp, emp, transport, transport, forest, water, slope]
+    scorelist = [pop_com, pop_res, emp_com, emp_res, transport_com, transport_res, 
+                 forest, water, slope]
+    attscorelist = zip(attlist, scorelist)
+    for att, score in attscorelist:
+        score = att2score(att)
+        grass.mapcalc('probmap = probmap*score')
 
 def main():
     grassConfig('grass', 'model')
@@ -209,28 +242,32 @@ def main():
     # print "--generate employment centers attractive map..."
     # os.system("python cities.py -p total_emp -n emp -m grav empcentersBase > ./Log/empatt.log")
     # print "export attractive ascii..."
-    # export_asciimap("pop_grav_attr")
-    # export_asciimap("emp_grav_attr")
-    # print "--generate population centers travelcost map..."
-    # os.system("python cities.py -p total_pop -n pop -m cost popcentersBase > ./Log/popatt.log")
-    # print "--generate employment centers travelcost map..."
-    # os.system("python cities.py -p total_emp -n emp -m cost empcentersBase > ./Log/empatt.log")
-    # print "export travelcost ascii..."
-    # export_asciimap("pop_cost")
-    # export_asciimap("emp_cost")
+    # export_asciimap("pop_grav_att")
+    # export_asciimap("emp_grav_att")
+    print "--generate population centers travelcost map..."
+    os.system("python cities.py -p total_pop -n pop -m cost popcentersBase > ./Log/popatt.log")
+    print "--generate employment centers travelcost map..."
+    os.system("python cities.py -p total_emp -n emp -m cost empcentersBase > ./Log/empatt.log")
+    print "export travelcost ascii..."
+    export_asciimap("pop_cost")
+    export_asciimap("emp_cost")
     # print "--generate intersection travel cost map..."
     # intersectionTravelCost()
+    # exportRaster("intersect_cost")
     # print "--generate transport attraction map using statered_cost, county_cost, road_cost, ramp_cost, and intersect_cost..."
     # transportAttraction("transport_attr")
     # print "export transport attraction ascii map..."
     # export_asciimap("transport_attr")
-    # exportRaster("transport_attr")
+    # exportRaster("transport_att")
     # print "--generate water attraction map..."
-    # bufferAttraction("water_attr", watercondstr())
-    # exportRaster("water_attr")
+    # bufferAttraction("water_att", watercondstr())
+    # exportRaster("water_att")
     # print "--generate forest attraction map..."
-    # bufferAttraction("forest_attr", forestcondstr())
-    # exportRaster("forest_attr")
+    # bufferAttraction("forest_att", forestcondstr())
+    # exportRaster("forest_att")
+    print "--generate slope attraction map..."
+    exportRaster("slope_att")
+
 
      
 if __name__ == "__main__":
