@@ -2,12 +2,14 @@ Data
 Data/*
 grass
 grass/*
-Output
-Output/*
+Outputs
+Outputs/*
 Download
 Download/*
 Log
 Log/*
+SFA
+SFA/*
 *.pyc
 *.make
 *.log

@@ -53,7 +53,7 @@ else:
 
 if ISEMP == 1:
     CENTERLIST = "./Data/empcenterlist.txt"
-    ATTRMAP = "./Data/emp_grav_attr.txt"
+    ATTRMAP = "./Data/emp_att.txt"
     TRCOSTMAP = "./Data/emp_cost.txt"
     ATTRFREQ_COM = "./Data/analysis/emp/attrfreq-commericial.png"
     ATTRFREQ_RES = "./Data/analysis/emp/attrfreq-residential.png"
@@ -62,7 +62,7 @@ if ISEMP == 1:
     ATTRBASE = 434
 else:
     CENTERLIST = "./Data/popcenterlist.txt"
-    ATTRMAP = "./Data/pop_grav_attr.txt"
+    ATTRMAP = "./Data/pop_att.txt"
     TRCOSTMAP = "./Data/pop_cost.txt"
     ATTRFREQ_COM = "./Data/analysis/pop/attrfreq-commericial.png"
     ATTRFREQ_RES = "./Data/analysis/pop/attrfreq-residential.png"

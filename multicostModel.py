@@ -166,8 +166,8 @@ def intersectionTravelCost():
     grass.run_command('g.remove', rast=["int1","int2", "intersection"])
 
 
-def transportAttraction(layername):
-    grass.mapcalc(layername+"="+str(W_STATERD)+"/(staterd_cost+0.1) + "
+def transportAttraction():
+    grass.mapcalc("transport_att="+str(W_STATERD)+"/(staterd_cost+0.1) + "
                                +str(W_COUNTY)+"/(county_cost+0.1) + "
                                +str(W_ROAD)+"/(road_cost+0.1) + "
                                +str(W_RAMP)+"/(ramp_cost+0.1) + "
@@ -187,8 +187,12 @@ def bufferAttraction(layername, layercond_str):
     grass.run_command('g.remove', rast=["int1","int2"])
 
 ##################### Slope Attraction ########################
-######  Required files in GRASS: dem #########
+######  Required files in GRASS: demBase #########
 def slopeAttraction():
+    """Caculate slope attraction
+       @input: demBase
+       @output: slope_att
+    """
     grass.run_command('r.slope.aspect', elevation="demBase", slope="int1")
     grass.mapcalc('slope_att=round(int1)')
     grass.run_command('g.remove', rast="int1")
@@ -213,9 +217,12 @@ def genProbmap(attscorelist):
                attscorelist = zip(attlist, scorelist)
     """
     grass.mapcalc('probmap=1.0')
-    attlist =[pop, pop, emp, emp, transport, transport, forest, water, slope]
-    scorelist = [pop_com, pop_res, emp_com, emp_res, transport_com, transport_res, 
-                 forest, water, slope]
+    attlist  =['pop_norm_att', 'pop_norm_att', 
+              'emp_norm_att', 'emp_norm_att', 
+              'transport', 'transport', 'forest', 'water', 'slope']
+    scorelist=['pop_com', 'pop_res', 'emp_com', 'emp_res', 
+               'transport_com', 'transport_res', 
+               'forest', 'water', 'slope']
     attscorelist = zip(attlist, scorelist)
     for att, score in attscorelist:
         score = att2score(att)
@@ -242,22 +249,22 @@ def main():
     # print "--generate employment centers attractive map..."
     # os.system("python cities.py -p total_emp -n emp -m grav empcentersBase > ./Log/empatt.log")
     # print "export attractive ascii..."
-    # export_asciimap("pop_grav_att")
-    # export_asciimap("emp_grav_att")
-    print "--generate population centers travelcost map..."
-    os.system("python cities.py -p total_pop -n pop -m cost popcentersBase > ./Log/popatt.log")
-    print "--generate employment centers travelcost map..."
-    os.system("python cities.py -p total_emp -n emp -m cost empcentersBase > ./Log/empatt.log")
-    print "export travelcost ascii..."
-    export_asciimap("pop_cost")
-    export_asciimap("emp_cost")
+    # export_asciimap("pop_att")
+    # export_asciimap("emp_att")
+    # print "--generate population centers travelcost map..."
+    # os.system("python cities.py -p total_pop -n pop -m cost popcentersBase > ./Log/popatt.log")
+    # print "--generate employment centers travelcost map..."
+    # os.system("python cities.py -p total_emp -n emp -m cost empcentersBase > ./Log/empatt.log")
+    # print "export travelcost ascii..."
+    # export_asciimap("pop_cost")
+    # export_asciimap("emp_cost")
     # print "--generate intersection travel cost map..."
     # intersectionTravelCost()
     # exportRaster("intersect_cost")
     # print "--generate transport attraction map using statered_cost, county_cost, road_cost, ramp_cost, and intersect_cost..."
-    # transportAttraction("transport_attr")
+    # transportAttraction()
     # print "export transport attraction ascii map..."
-    # export_asciimap("transport_attr")
+    # export_asciimap("transport_att")
     # exportRaster("transport_att")
     # print "--generate water attraction map..."
     # bufferAttraction("water_att", watercondstr())
@@ -265,8 +272,13 @@ def main():
     # print "--generate forest attraction map..."
     # bufferAttraction("forest_att", forestcondstr())
     # exportRaster("forest_att")
-    print "--generate slope attraction map..."
-    exportRaster("slope_att")
+    # print "--generate slope attraction map..."
+    # exportRaster("slope_att")
+
+    print "list available raster maps in database..."
+    grass.run_command('g.mlist', type='rast')
+
+
 
 
      

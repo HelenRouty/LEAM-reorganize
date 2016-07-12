@@ -20,8 +20,8 @@ def main():
     site = LEAMsite(resultsdir, user=sys.argv[1], passwd=sys.argv[2])
     
     print "--upload pop_attr map..."
-    popattr_simmap  = 'Data/pop_grav_attr.gtif'
-    popattr_mapfile = 'Outputs/pop_grav_attr.map'
+    popattr_simmap  = 'Data/pop_att.gtif'
+    popattr_mapfile = 'Outputs/pop_att.map'
     popattrurl = site.putSimMap("popattr.tif", "popattr.map", url,
         simmap_file=open(popattr_simmap, 'rb'), 
         mapfile_file=open(popattr_mapfile, 'rb'))
