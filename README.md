@@ -4,26 +4,30 @@ This is trying to break the original LEAM codes to pieces and reorganize for mor
 Update:
 
 1. Data Analysis:
-multicostModel.py: 
+
+*multicostModel.py: 
    generate pop_grav_attr.txt, emp_grav_attr.txt,
    pop_cost.txt, and emp_cost.txt in ./Data by calling cities.py.
    Note that codes in cities.py and multicostModel.py are learned
    from original LEAM codes.
    `python multicostModel.py`
-dataanalysis.py: 
+
+*dataanalysis.py: 
    generate res/com frequency vs. attractivenss & travelcost
    over population centers or employment centers in ./Data/analysis
    `python dataanalysis.py <attrbasketnum> <costbasketnum> -c <pop/emp>`
 
 2. Upload maps to plone weisite with automated quantile scale color
-multicostModel.py:
+
+*multicostModel.py:
    generate .tif maps in ./Data
-genSimMap.py:
+
+*genSimMap.py:
    generate .map files for each .tif maps in ./Outputs for the quantile color
-connectLEAMsite.py:
+
+*connectLEAMsite.py:
    upload .tif with its .map to the plone website.
    `python connectLEAMsite.py <username> <password>
-
 
 --------------------
 
