@@ -15,8 +15,26 @@ W_ROAD=float(0)
 W_RAMP=float(1500)
 W_INTERSECT=float(500)
 
+##PROBMAP WEIGHT##
+WEIGHTS = {
+'pop_res':1.5,
+'pop_com':2.0,
+'transport_res':0.8,
+'transport_com':0.9,
+'emp_res':1.0,
+'emp_com':1.0,
+}
 
-
+##PROBMAP COMPONENTS##
+COMSCORELIST = [('pop'      , 'pop_com'      ),
+                ('emp'      , 'emp_com'      ),
+                ('transport', 'transport_com')]
+RESSCORELIST = [('pop'      , 'pop_res'      ),
+                ('emp'      , 'emp_res'      ),
+                ('transport', 'transport_res')]
+ATTSCORELIST = [('forest'   , 'forest'       ),
+                ('water'    , 'water'        ),
+                ('slope'    , 'slope'        )]
 
 GRAPHS="./SFA"
 EMPCENTERS = 'empcentersBase'
@@ -43,18 +61,18 @@ def importVector(fullpathfilename, layername):
             snap='0.01', output=layername, overwrite=True, quiet=True):
         raise RuntimeError('unable to import vectormap ' + layername) 
 
-def exportRaster(layername):
+def exportRaster(layername, valuetype='UInt16'):
     outfilename = 'Data/'+layername+'.tif'
     if grass.run_command('r.out.gdal', input=layername, 
-      output=outfilename, type='UInt16'):
+      output=outfilename, type=valuetype):
         raise RuntimeError('unable to export raster map ' + layername )
 
-def export_asciimap(layername):
+def export_asciimap(layername, nullval=-1):
     """Export a raster layer into asciimap. The output folder is 'Data/'.
        @param: layername is the raster layer name.
     """
     outfilename = 'Data/'+layername+'.txt'
-    if grass.run_command('r.out.ascii', input=layername, output=outfilename, null=-1):
+    if grass.run_command('r.out.ascii', input=layername, output=outfilename, null=nullval):
         raise RuntimeError('unable to export ascii map ' + layername)
 
 ################## Fucntions for centers and travel time maps #################
@@ -128,7 +146,7 @@ def multicost4travelcost(centersMap, outputname, maxcostmin):
 
 ################## Caculate Roads Attraction #################################
 ######  Required files in GRASS: otherroads #########
-def roadsTravelCost(roadsClassName_list):
+def roadsTravelCost(roadsClassName_list=[('staterd', 2), ('county', 3), ('road', 4), ('ramp', 6)]):
     """This takes about 3min.
     """
     for layername, classnum in roadsClassName_list:
@@ -142,7 +160,7 @@ def roadsTravelCost(roadsClassName_list):
         exportRaster(outname)
         print outname," takes ", time.time()-start,"s."
 
-def intersectionTravelCost():
+def intersectionTravelCost(layername="intersect_cost"):
     """Finds state #2 and county #3 road  intersections.  Create a map of
        just state and county roads. Expand these locations by one cell and
        then thin them down to one cell (to take care of any small map errors).
@@ -162,16 +180,17 @@ def intersectionTravelCost():
 
     grass.run_command('r.multicost', input="overlandTravelTime30",
             m2="intTravelTime30", xover="cross", start_rast="intersection", 
-            output="intersect_cost")
+            output=layername)
     grass.run_command('g.remove', rast=["int1","int2", "intersection"])
 
 
-def transportAttraction():
-    grass.mapcalc("transport_att="+str(W_STATERD)+"/(staterd_cost+0.1) + "
+def transportAttraction(layername="transport_att"):
+    grass.mapcalc(layername+"="+str(W_STATERD)+"/(staterd_cost+0.1) + "
                                +str(W_COUNTY)+"/(county_cost+0.1) + "
                                +str(W_ROAD)+"/(road_cost+0.1) + "
                                +str(W_RAMP)+"/(ramp_cost+0.1) + "
                                +str(W_INTERSECT)+"/(intersect_cost+0.1)")
+    grass.run_command('r.null', map=layername, null=0.0)
 ##################### Water and Forest Attraction ########################
 ######  Required files in GRASS: landcover #########
 def watercondstr():
@@ -188,13 +207,13 @@ def bufferAttraction(layername, layercond_str):
 
 ##################### Slope Attraction ########################
 ######  Required files in GRASS: demBase #########
-def slopeAttraction():
+def slopeAttraction(layername="slope_att"):
     """Caculate slope attraction
        @input: demBase
        @output: slope_att
     """
     grass.run_command('r.slope.aspect', elevation="demBase", slope="int1")
-    grass.mapcalc('slope_att=round(int1)')
+    grass.mapcalc(layername+'=round(int1)')
     grass.run_command('g.remove', rast="int1")
 
 ##################### Transform Attrmaps to scores ######################
@@ -206,27 +225,42 @@ def att2score(attname, scorename):
     """
     grass.run_command('r.recode', input=attname+"_att", output=scorename+"_score", 
                                   rules="SFA/"+scorename+".sfa")
-    return attname+"_score"
+    # Setting to null so that there won't be weird values appear
+    grass.run_command('r.null', map=scorename+"_score", null=0.0)
+    return scorename+"_score"
 
-def genProbmap(attscorelist):
-    """ From attrmaps to generate probmap.
-        @input: a list of (attname, scorename) pairs. 
-               For example, 
-               attlist = [pop, pop, emp, emp, forest]
-               scorelist = [pop_com, pop_res, emp_com, emp_res, forest]
-               attscorelist = zip(attlist, scorelist)
+def att2score_centers(attname, scorename):
+    """Transform attractiveness map to a score map using SFA files.
+       @input: attractiveness map without _att
+       @output: result score map name
     """
-    grass.mapcalc('probmap=1.0')
-    attlist  =['pop_norm_att', 'pop_norm_att', 
-              'emp_norm_att', 'emp_norm_att', 
-              'transport', 'transport', 'forest', 'water', 'slope']
-    scorelist=['pop_com', 'pop_res', 'emp_com', 'emp_res', 
-               'transport_com', 'transport_res', 
-               'forest', 'water', 'slope']
-    attscorelist = zip(attlist, scorelist)
+    #if (scorename != 'pop_com' and scorename != 'pop_res'):
+    grass.run_command('r.recode', input=attname+"_att", output=scorename+"_score", 
+                                  rules="SFA/"+scorename+".sfa")
+    export_asciimap(scorename+"_score")
+    weight = WEIGHTS[scorename]
+    grass.mapcalc('%s_score=pow(%s_score,%i)' %(scorename, scorename, weight))
+    export_asciimap(scorename+"_score")
+    return scorename+"_score"
+
+
+def genProbmap(centerscorelist, attscorelist, problayername):
+    """ From attrmaps to generate probmap.
+        @input: centerscorelist is a list of (attname, scorename) pairs. 
+                E.g. centerscorelist can be:
+                [('pop', 'pop_com'), ('emp', 'emp_com'),
+                 ('transport', 'transport_com')] for 'probmap_com' map.
+                attlist can be [('forest', 'forest'), ('water', 'water'), ('slope', 'slope')]
+        @output: probmap_com or probmap_res (commercial/residential)
+    """
+    grass.mapcalc(problayername+'=1.0')
     for att, score in attscorelist:
-        score = att2score(att)
-        grass.mapcalc('probmap = probmap*score')
+        score = att2score(att, score)
+        grass.mapcalc(problayername +'='+ problayername + '*' + score)
+    for att, score in centerscorelist:
+        score = att2score_centers(att, score)
+    grass.mapcalc(problayername +'='+ problayername + '*' + score)     
+    grass.run_command('g.remove', rast=score)
 
 def main():
     grassConfig('grass', 'model')
@@ -275,8 +309,17 @@ def main():
     # print "--generate slope attraction map..."
     # exportRaster("slope_att")
 
-    print "list available raster maps in database..."
-    grass.run_command('g.mlist', type='rast')
+    # print "list available raster maps in database..."
+    # grass.run_command('g.mlist', type='rast')
+
+    # print "--generate probmap_com..."
+    # genProbmap(COMSCORELIST, ATTSCORELIST, 'probmap_com')
+    exportRaster('probmap_com', 'Float64')
+    # # export_asciimap('probmap_com')
+    # print "--generate probmap_res..."
+    # genProbmap(RESSCORELIST, ATTSCORELIST, 'probmap_res')
+    exportRaster('probmap_res', 'Float64')
+    # export_asciimap('probmap_res')
 
 
 
