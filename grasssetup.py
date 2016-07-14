@@ -12,7 +12,8 @@ import time
 
 InputPath = './Data'
 
-def grass_config(location, mapset, gisbase='/usr/local/grass-6.4.5svn', gisdbase='.'):
+def grassConfig(location='grass', mapset='model',
+    gisbase='/usr/local/grass-6.4.5svn', gisdbase='.'):
     """ Set grass environment to run grass.script as grass
     """
     os.environ['GISBASE'] = gisbase

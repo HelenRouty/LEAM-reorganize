@@ -1,0 +1,14 @@
+# population and employment graph
+# title: TEST2_PROJECTION
+# url: http://portal.leam.illinois.edu/chicago/luc/projections/test2_projection
+# spatial area: http://portal.leam.illinois.edu/chicago/luc/projections/subregional/chicago_boundary
+# population density: http://portal.leam.illinois.edu/chicago/luc/projections/density/chicago_popden2
+# employment density: http://portal.leam.illinois.edu/chicago/luc/projections/density/chicago_empden
+
+Population
+2010, 654078
+2040, 3054654
+
+Employment
+2010, 221758
+2040, 1458527

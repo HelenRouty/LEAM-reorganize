@@ -314,11 +314,11 @@ def main():
 
     # print "--generate probmap_com..."
     # genProbmap(COMSCORELIST, ATTSCORELIST, 'probmap_com')
-    exportRaster('probmap_com', 'Float64')
+    # exportRaster('probmap_com', 'Float64')
     # # export_asciimap('probmap_com')
     # print "--generate probmap_res..."
     # genProbmap(RESSCORELIST, ATTSCORELIST, 'probmap_res')
-    exportRaster('probmap_res', 'Float64')
+    # exportRaster('probmap_res', 'Float64')
     # export_asciimap('probmap_res')
 
 
