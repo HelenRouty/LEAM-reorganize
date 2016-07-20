@@ -1,0 +1,41 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<model>
+<scenario>
+	<id>test4_scenario</id>
+	<title>test4_scenario</title>
+	<portal>http://portal.leam.illinois.edu/chicago</portal>
+	<results>http://portal.leam.illinois.edu/chicago/luc/scenarios/test4_scenario</results>
+	<grass_loc>http://portal.leam.illinois.edu/chicago/luc/resources/grass/at_download/file</grass_loc>
+	<repository>svn co http://portal.leam.illinois.edu/svn/chicago/trunk</repository>
+	<cmdline>python startup.py -c {url}/getConfig</cmdline>
+	<probmap>
+		<id>test2_driverset</id>
+		<title>TEST2_DRIVERSET</title>
+		<year>2010</year>
+		<url>http://portal.leam.illinois.edu/chicago/luc/drivers/test2_driverset</url>
+		<probmapcache>http://portal.leam.illinois.edu/chicago/luc/drivers/test2_driverset/at_download/probfile</probmapcache>
+		<roads>http://portal.leam.illinois.edu/chicago/luc/drivers/transportation/chicago_roadnetwork/at_download/simImage</roads>
+		<landuse>http://portal.leam.illinois.edu/chicago/luc/drivers/grids/chicago_landuse/at_download/simImage</landuse>
+		<nogrowth_maps>
+			<nogrowth>http://portal.leam.illinois.edu/chicago/luc/drivers/nogrowth/chicago_nogrowth-1/at_download/simImage</nogrowth>
+		</nogrowth_maps>
+		<centers>
+			<empcenter>http://portal.leam.illinois.edu/chicago/luc/drivers/attractors/chicago_empcenter3/at_download/simImage</empcenter>
+			<popcenter>http://portal.leam.illinois.edu/chicago/luc/drivers/attractors/chicago_popcenter2/at_download/simImage</popcenter>
+		</centers>
+	</probmap>
+	<projection>
+		<id>test2_projection</id>
+		<title>TEST2_PROJECTION</title>
+		<startyear>2010</startyear>
+		<endyear>2040</endyear>
+		<demandlist>http://portal.leam.illinois.edu/chicago/luc/projections/test2_projection/getGraph</demandlist>
+		<boundary>http://portal.leam.illinois.edu/chicago/luc/projections/subregional/chicago_boundary/at_download/simImage</boundary>
+		<redevelopment>False</redevelopment>
+		<pop_density>http://portal.leam.illinois.edu/chicago/luc/projections/density/chicago_popden2/at_download/simImage</pop_density>
+		<emp_density>http://portal.leam.illinois.edu/chicago/luc/projections/density/chicago_empden/at_download/simImage</emp_density>
+	</projection>
+
+	<post-processing>http://portal.leam.illinois.edu/chicago/luc/scenarios/test4_scenario/queue_post</post-processing>
+</scenario>
+</model>

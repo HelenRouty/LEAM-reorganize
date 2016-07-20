@@ -26,6 +26,23 @@ scenatriotitle = 'test2_projection'
 resultsdir = 'http://portal.leam.illinois.edu/chicago/luc/scenarios/test4_scenario'
 DEMANDGRAPH ='gluc/Data/demand.graphs'
 
+def grassConfig(location='grass', mapset='model',
+    gisbase='/usr/local/grass-6.4.5svn', gisdbase='.'):
+    """ Set grass environment to run grass.script as grass
+    """
+    os.environ['GISBASE'] = gisbase
+    os.environ['GRASS_VERBOSE'] = '0'
+    os.environ['GRASS_OVERWRITE'] = '1'
+    sys.path.append(os.path.join(gisbase, 'etc', 'python'))
+
+    global grass
+    __import__('grass.script')
+    grass = sys.modules['grass.script']
+    from grass.script.setup import init
+    gisrc = init(gisbase, gisdbase, location, mapset)
+
+    grass.run_command('g.region', res=30) 
+
 def getDemandYearPop(demandstr, demandname):
     """@input: demandstr: StringIO gotten by getURL from leamsite.
                demandname is 'Population' or 'Employment'.
@@ -105,28 +122,23 @@ def executeGLUCModel(mode='growth', projid=scenatriotitle):
        4. empty change and summary .bil && .hdr files 
                                             --- gluc.make start
        ***GLUC model run***
-       gluc.make growth merge
+       gluc.make growth
 
        ***GLUC model outputs***
-       change.bil and summary.bil
+       change.bil and summary.bil in gluc/DriverOutput/Maps
     """
-    # ***GLUC model requires inputs*** #
-    # 1. writeConf --- TODO: later
-
-    # 2. generate demand.graph: yearly demand list
+    # generate GLUC model inputs
+    # TODO: write PROJID.conf
     genYearlyDemandGraph()
-
-    # 3. generate bil files as gluc inputs
     genBilGLUCInputs()
 
-    # 4. empty change and summary files
-    cmd = 'make -f ./bin/gluc.make start'
+    cmd = 'make -f gluc.make start'
     check_call(cmd.split())
 
-    # ***GLUC Model run*** #
+    # run GLUC model
     try:
-        with open('./gluc/%s_gluclog.log' % scenatriotitle, 'w') as log:
-            cmd='make -f ./bin/gluc.make %s merge PROJID=%s'% (mode, projid)
+        with open('./Log/%s_gluclog.log' % scenatriotitle, 'w') as log:
+            cmd='make -f gluc.make %s PROJID=%s'% (mode, projid)
             check_call(cmd.split(), stdout=log, stderr=log)
     except subprocess.CalledProcessError:
         print 'GLUC Model Failure'
@@ -135,14 +147,9 @@ def executeGLUCModel(mode='growth', projid=scenatriotitle):
 def main():
     global site
     site = LEAMsite(resultsdir, user=sys.argv[1], passwd=sys.argv[2])
+    grassConfig()
 
     executeGLUCModel()
-    
-    # MAPS = './gluc/DriverOutput/Maps/'
-    # grass.run_command('r.in.gdal', overwrite=True, input=MAPS+'change.bil' output=scenatriotitle+'_change'
-    # r.mapcalc "change=if(${PROJID}_change,${PROJID}_change,change)"
-    # r.in.gdal --overwrite input=${MAPS}/summary.bil output=${PROJID}_summary
-    
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
