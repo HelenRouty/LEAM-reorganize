@@ -78,6 +78,7 @@ class LEAMsite:
         # capture the response and look in the content
         # body tag has class with login failure
 
+
     def checkURL(self, url):
         """Tries to open a URL and return true if successful (object exists)
         or false if error occurs.  
@@ -215,7 +216,6 @@ class LEAMsite:
         """Creates a new document and add the doc (file-like object) to it."""
 
         self.b.open('/'.join((url,'createObject?type_name=Document')))
-        print url
         self.b.select_form("edit_form")
 
         self.b['title'] = title
@@ -265,7 +265,6 @@ class LEAMsite:
         """
 
         pathurl = '/'.join((url,folder.lower().replace(' ','-')))
-        print pathurl
         try:
             self.b.open(pathurl)
         except:

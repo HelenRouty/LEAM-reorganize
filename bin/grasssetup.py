@@ -10,8 +10,6 @@ import time
 # import subprocess
 # from subprocess import check_call
 
-InputPath = './Data'
-
 def grassConfig(location='grass', mapset='model',
     gisbase='/usr/local/grass-6.4.5svn', gisdbase='.'):
     """ Set grass environment to run grass.script as grass

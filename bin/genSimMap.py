@@ -49,7 +49,7 @@ def genSimMap(spatialcode, classColorCondlist, filename):
 
     # write strings to filename.map
     outdata = "".join(header + classcolor_list + footer)
-    outfilename = "Outputs/"+ filename + ".map"
+    outfilename = "./Outputs/"+ filename + ".map"
     with open(outfilename, "w") as f:
       f.writelines(outdata)
 

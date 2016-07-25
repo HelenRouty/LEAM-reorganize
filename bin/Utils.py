@@ -16,7 +16,6 @@ def extractheader(header):
         header = h.read()
     return header
 
-
 def outfilename(cellx, celly, path, fname, dirname, count):
     """Modify filename "file.txt" to be "cell0_0/Data/file_0_0_SE1.txt" for starting cell (0,0) on the first 2hrs run.
     """
