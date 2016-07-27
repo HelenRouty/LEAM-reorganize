@@ -78,7 +78,6 @@ class LEAMsite:
         # capture the response and look in the content
         # body tag has class with login failure
 
-
     def checkURL(self, url):
         """Tries to open a URL and return true if successful (object exists)
         or false if error occurs.  
@@ -101,7 +100,7 @@ class LEAMsite:
         rsp = self.b.open(url, data)
 
         if filename:
-            f = file(filename, 'wb')
+            f = file("./Inputs/"+filename, 'wb') # always write to Input folder
             f.write(rsp.read())
             f.close()
             return None
@@ -265,6 +264,7 @@ class LEAMsite:
         """
 
         pathurl = '/'.join((url,folder.lower().replace(' ','-')))
+        print pathurl
         try:
             self.b.open(pathurl)
         except:

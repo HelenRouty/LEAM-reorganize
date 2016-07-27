@@ -3,8 +3,7 @@ sys.path += ['..']
 import pandas as pd
 import numpy as np
 from sets import Set
-
-SIMMAPHEADER = "./Inputs/simMapheader.txt"
+from parameters import *
 
 def genSimMap(spatialcode, classColorCondlist, filename):
     """This function generates simMap: the meta data for maps projected on google map

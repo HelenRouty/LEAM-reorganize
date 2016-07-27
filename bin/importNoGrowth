@@ -1,0 +1,32 @@
+#!/bin/bash
+
+g.region -p > /dev/null
+if [[ $? != 0 ]]; then
+  echo "Error: not running under GRASS environment"
+  exit 1
+fi
+
+r.mapcalc nogrowth=0
+echo "initial nogrowth"
+
+for arg
+do
+  loc="Temp/"tmp$$
+  rm -rf $loc
+
+  echo "processing $arg to location $loc"
+  v.in.ogr --overwrite dsn=$arg output=nogrowth location=$loc snap=10 min_area=300
+  layer=${arg/.shp/}
+  v.proj --overwrite input=nogrowth mapset=PERMANENT location=$loc output=$layer
+
+  echo "removing import location"
+  rm -rf ${GISDBASE}/$loc
+
+  v.to.rast --overwrite input=$layer output=$layer use=val value=1
+  if [[ $? == 0 ]]; then
+    r.null $layer null=0
+    r.mapcalc "nogrowth=if($layer, 1, nogrowth)"
+  fi
+done
+
+echo "nogrowth completed"

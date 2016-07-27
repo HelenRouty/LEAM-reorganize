@@ -15,7 +15,11 @@ class RunLog:
             self.log.write('<h2 class="runlog">'+initmsg+'</h2>\n')
         else:
             self.log.write('<h2 class="runlog">Run Started</h2>\n')
-        self.logdoc = self.site.putDocument(self.log, resultsdir, 'Run Log')
+        try:
+            self.logdoc = self.site.putDocument(self.log, resultsdir, 'Run Log')
+        except:
+            print "FormNotFoundError in Runlog. Possibly wrong user and password, or wrong url.\n"
+            raise
 
     def _init_logger(self, name, level=logging.DEBUG, fname='./Log/run.log'):
         logger = logging.getLogger(name)
