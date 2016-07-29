@@ -62,13 +62,40 @@ def getQuantileList(mapfilename, numbaskets):
     arrlen = len(arr)
     basketsize = arrlen/numbaskets
     sortedarr = np.sort(arr)
-    sortedarr = sortedarr[0:arrlen-1:basketsize]
-    print sortedarr
+    arrticks = sortedarr[0:arrlen-1:basketsize]
+    print basketsize
+    print arrticks
+    # if the maximum or the base values are too much, remove them.
+    # TODO: this is a brute force solution. Varies maps may have different
+    # cases. Should be improved to cater all map cases.
+    if len(arrticks) > 3                                and \
+       arrticks[-1] == arrticks[-2] and \
+       arrticks[-2] == arrticks[-3] and \
+       arrticks[-3] == arrticks[-4]:
+       sortedarr = sortedarr[sortedarr!=arrticks[-1]]
+       arrticks = sortedarr[0:len(sortedarr)-1:len(sortedarr)/numbaskets]
+       print arrticks,  " after remove the maximum"
+    if len(arrticks) > 3          and \
+       arrticks[0] == arrticks[1] and \
+       arrticks[1] == arrticks[2] and \
+       arrticks[2] == arrticks[3]:
+       sortedarr = sortedarr[sortedarr!=arrticks[0]]
+       arrticks = sortedarr[0:len(sortedarr)-1:len(sortedarr)/numbaskets]
+       print arrticks, " after remove the base"
+
+    # multiplier = 1
+    # while(arrticks[-1]*multiplier < numbaskets):
+    #     multiplier *= 10
+    # if multiplier != 1:
+    #     arrticks = [tick * multiplier for tick in arrticks]
+
     retarr = []
-    retarr.append(int(sortedarr[0]))
+    retarr.append(arrticks[0])
     for i in xrange(1, numbaskets):
-        if sortedarr[i] != sortedarr[i-1]:
-            retarr.append(int(sortedarr[i]))
+        if arrticks[i] != arrticks[i-1]:
+            # retarr.append(int(arrticks[i]))
+            retarr.append(arrticks[i])
+
     return retarr, len(retarr)
 
 def getRGBList(numbaskets):
@@ -116,6 +143,7 @@ def genclassColorCondlist(filename, numbaskets):
         classColorCondlist.append((str(i), condstr, rgblist[i]))
     condstr = "[pixel] > "+str(quantilelist[lastindex-1]) 
     classColorCondlist.append((str(lastindex), condstr, rgblist[lastindex]))
+    print classColorCondlist
     return classColorCondlist
 
 def main():

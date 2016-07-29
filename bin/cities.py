@@ -14,6 +14,7 @@ from optparse import OptionParser
 sys.path += ['./bin']
 from glob import iglob
 import time
+from sets import Set
 
 usage = "usage: %prog [options] <cities>"
 
@@ -22,6 +23,18 @@ vector layer computing a city attractor map.  Each city attractor
 map is aggregated into the final <attmap> to create a cities gravity 
 map using POP/(cityatt+1)^2.
 """
+
+def normalize(layer, result=""):
+    "normalize a composity gravity map"
+    if (result==""):
+        result=layer+"_norm"
+    for l in os.popen('r.univar %s' % layer):
+        print l
+        if l.startswith('maximum:'):
+            s, max = l.strip().split()
+            break
+    os.system('r.mapcalc %s=%s/%s' % (result,layer,max))
+
 
 def grass_config(location, mapset, gisbase='/usr/local/grass-6.4.5svn', gisdbase='.'):
     """ Set grass environment to run grass.script as grass
@@ -37,39 +50,36 @@ def grass_config(location, mapset, gisbase='/usr/local/grass-6.4.5svn', gisdbase
     from grass.script.setup import init
     gisrc = init(gisbase, gisdbase, location, mapset)  
 
+
 def make_city_tt(cities, cat, overland='overlandTravelTime30', 
                  interstates='intTravelTime30', xover='cross', maxcost='180'):
     """Extracts a specific city, buffers it, and then uses r.multicost
        to determine travel time out to maxcost (minutes), and computes
        attractor maps based on pop/tt^2.
-       tt -- is the travel time map
-    """
+       @inputs: cities (vector map) : center attractors
+                cat (int) : the class value of the centers
+       @outputs: travelcost (str) : the name of the class travelcost map
 
+       Note: ywkim added, it originally extracts from the raster
+       but it is not accurate if there are many points overlapped
+       so change this to work using vector first then convert to raster
     """
-    ywkim added, it originally extracts from the raster
-    but it is not accurate if there are many points overlapped
-    so change this to work using vector first then convert to raster
-    """
-    
-    grass.run_command('v.extract', input=cities, output='ctmpv',
+    classlayer = '%s%s'%(cities,cat)
+    travelcost = '%s_travelcost' % classlayer
+    grass.run_command('v.extract', input=cities, output=classlayer,
         where="class = %s" % (cat), overwrite=True, quiet=True)
     grass.run_command('g.region', res=30)
-    #grass.mapcalc('ctmp=if($cities==$cat,1,null())', cities=cities,
-    #    cat=cat)
-    grass.run_command('v.to.rast', input='ctmpv', output='ctmp', 
+    grass.run_command('v.to.rast', input=classlayer, output=classlayer, 
         use='val', value=1, overwrite=True)
-    #grass.run_command('g.remove', v='ctmpv')
-    grass.run_command('r.buffer', input='ctmp', output='ctmp', dist='180')
-    grass.mapcalc('ctmp=if(ctmp)')
+    grass.run_command('g.remove', vect=classlayer)
+    grass.run_command('r.buffer', input=classlayer, output=classlayer, dist='180')
+    grass.mapcalc('%s=if(%s)' % (classlayer, classlayer))
     grass.run_command('r.multicost', input=overland, m2=interstates, 
-        xover=xover, start_rast='ctmp', output='tt', max_cost=maxcost)
+        xover=xover, start_rast=classlayer, output=travelcost, max_cost=maxcost)
+    grass.run_command('g.remove', rast=classlayer)
+    return travelcost
 
-def main():
-    grass_config('grass', 'model')
-    os.environ['GRASS_MESSAGE_FORMAT'] = 'silent'
-    grass.run_command('g.gisenv', set='OVERWRITE=1')
-    mapset = grass.gisenv()['MAPSET']
-
+def parse_args():
     parse = OptionParser(usage=usage, description=description)
     parse.add_option('-f', '--force', action="store_true", default=False,
         help='force the rasterization of the cities vector layer')
@@ -111,94 +121,54 @@ def main():
     else:
         parse.error("option mode must be max or gravity or cost")
 
-    # if the cat ID of the city has been given just create the city map
-    # NOTE: short-circuits the rest of the script!
-    if opts.cat:
-        tt = make_city_tt(cities, opts.cat, maxcost=opts.maxtime)
-        grass.run_command('g.rename', rast='%s,city%s_tt' % (tt,opts.cat))
-        grass.message('city%s_tt: city travel time created.' % opts.cat)
-        sys.exit(0)
+    return cities, dest, method, opts.pop
 
-    # get all the existing travel time maps
-    ttmaps = grass.mlist_grouped('rast', pattern='city*_tt').get(mapset,[])
+
+def main():
+    grass_config('grass', 'model')
+
+    os.environ['GRASS_MESSAGE_FORMAT'] = 'silent'
+    grass.run_command('g.gisenv', set='OVERWRITE=1')
+    mapset = grass.gisenv()['MAPSET']
     
+    cities, dest, method, colname = parse_args()
+
     # ywkim added to figure out the number of class
     # create the list for the unique class category
+    classSet = Set()
     numClass = grass.parse_command('v.db.select', flags='c', map=cities, column='cat,CLASS', fs='=')
-    classList = []
-    classUniList = []
-    classAveList = []
-
     for cat,CLASS in numClass.items():
-        classList.append(int(CLASS))
-
-    classList.sort()
+        classSet.add(int(CLASS))
+    classList = list(classSet)
+    print "classList: ", classList
     
-    classStartValue = 0
-
-    for i in range(len(classList)):
-        if classList[i] != classStartValue:
-            classUniList.append(classList[i])
-            classStartValue = classList[i]
-
-    # create the average number for the class
-    for i in range(len(classUniList)):
-        totalNum = 0
-        indexCounter = 0
-        aveVal = 0
-        classAve = grass.parse_command('v.db.select', flags='c', 
-            map=cities, column='cat,'+opts.pop, where='CLASS = '+str(classUniList[i]), fs='=')    
-
+    # calculate average population for each class
+    classAveList = []
+    for i in xrange(len(classList)):
+        total = counter = 0
+        classAve = grass.parse_command('v.db.select', flags='c', map=cities, 
+            column='cat,'+colname, where='CLASS = '+str(classList[i]), fs='=')    
         for cat,pop in classAve.items():
-            totalNum = totalNum + int(pop)
-            indexCounter = indexCounter + 1
-
-        aveVal = totalNum / indexCounter
-        classAveList.append(aveVal)
-
-    """
-    ywkim disabled this routine to make it class based routine
-    # for each city calculate the accumulated cost surface and
-    # convert gavity map by dividing population by cost squared and
-    # create a composite map gravity may be summing all maps together
-    catpop = grass.parse_command('v.db.select', flags='c', 
-        map=cities, column='cat,'+opts.pop, fs='=')
-
-    for cat,pop in catpop.items():
-        print cat, pop
-        citytt = 'city%s_tt' % cat
-        if opts.rebuild or citytt not in ttmaps:
-            make_city_tt(cities, cat, maxcost=opts.maxtime)
-            if opts.preserve:
-                grass.run_command('g.rename', rast='tt,%s' % citytt)
-            else:
-                citytt = 'tt'
-        grass.mapcalc(method, dest=dest, pop=pop, tt=citytt)
-
-    normalize(dest)
-    print dest, "created."
-    """
-
-    for i in range(len(classUniList)):
-        classVal = classUniList[i]
-        aveVal = classAveList[i]
+            total += int(pop)
+            counter += 1
+        classAveList.append(total/counter)
+    print "classAveList: ", classAveList
+    
+    for classVal, aveVal in zip(classList, classAveList):
         print "Class =  ", classVal, ", Average = " , aveVal
-        citytt = 'city%s_tt' % classUniList[i]
-        if opts.rebuild or citytt not in ttmaps:
-            make_city_tt(cities, classVal, maxcost=opts.maxtime)
-            if opts.preserve:
-                grass.run_command('g.rename', rast='tt,%s' % citytt)
-            else:
-                citytt = 'tt'
-        grass.mapcalc(method, dest=dest, pop=aveVal, tt=citytt)
+        classtravelcost = make_city_tt(cities, classVal, maxcost=opts.maxtime)
+        grass.mapcalc(method, dest=dest, pop=aveVal, tt=classtravelcost)
 
-    # As all multicost model maps' smallest values are 0,
-    # it makes sense to set all null values to be 0.
+    exit(1)
+    
     """ TODO: These null values are for the landuse types ignored by
               original speed charts of the original leam program.
               Fix it!
     """ 
+    normalize(dest)
     grass.run_command('r.null', map=dest, null=0.0) 
+    # As all multicost model maps' smallest values are 0,
+    # it makes sense to set all null values to be 0.
     
     print dest, " created."
 
