@@ -17,7 +17,6 @@ user = sys.argv[2]
 passwd = sys.argv[3]
 
 site = LEAMsite(resultsdir, user, passwd)
-
 ######################## Basic GRASS and site setup Functions #################################
 def grassConfig(location, mapset,
     gisbase='/usr/local/grass-6.4.5svn', gisdbase='.'):
@@ -32,7 +31,8 @@ def grassConfig(location, mapset,
     __import__('grass.script')
     grass = sys.modules['grass.script']
     from grass.script.setup import init
-    gisrc = init(gisbase, gisdbase, location, mapset)  
+    gisrc = init(gisbase, gisdbase, location, mapset)
+    grass.run_command('g.region', res=30)  
 
 
 def importVector(fullpathfilename, layername):
@@ -83,59 +83,63 @@ def exportAllforms(mapfile):
 ################## Fucntions for centers and travel time maps #################
 ######  Required files in GRASS: otherroadsBase, landcover ########
 def genotherroads():
-    """Vector map otherroads to raster map with value = class
+    """@input map: otherroads (vect)
+       @output map: otherroads (rast) 
+                    with value = class in vector map and null = 0
     """
     grass.run_command('v.to.rast', input='otherroads', 
-        output='otherroadsBase', column='class')
-    grass.run_command('r.null', map='otherroadsBase', null=0)
-    grass.mapcalc('otherroads=if(otherroadsBase==0,0,otherroadsBase)')
-    grass.run_command('g.remove', rast="otherroadsBase")
+        output='otherroads', column='class')
+    grass.run_command('r.null', map='otherroads', null=0)
 
-def gencross():
-    grass.run_command('g.remove', rast=["cross","intbuf"])
-    # interstatesBase -> interstates
-    grass.mapcalc('interstates=if(interstatesBase==0,0,1)')
-    # interstates, otherroads -> cross
-    grass.run_command('r.buffer',flags='z', input='interstates',
-        output='intbuf', dist=60)
-    grass.mapcalc('cross=if(intbuf && otherroads==6, 1, 0)')
-
-
-def geninterstatesBase():
+def geninterstatesBaseAndinterstates():
+    """Generate interstatesBase and interstates map for 
+       genoverlandTravelTime30 and genintTravelTime30
+       @input map: otherroads
+       @output maps: interstatesBase, interstates
+    """
+    # otherroads -> interstatesBase
     grass.run_command('v.extract', input='otherroads',
         output='interstatesBase', where="class = 1")
     grass.run_command('v.to.rast', input='interstatesBase', 
         output='interstatesBase', column='class')
     grass.run_command('r.null', map='interstatesBase', null=0)
+    # interstatesBase -> interstates
+    grass.mapcalc ("interstates=if(interstatesBase==0,0,1)")
+
+
+def gencross():
+    """Generate map cross for r.multicost function
+       @input maps: interstates, otherroads
+       @output map: cross
+    """
+    # interstates, otherroads -> cross
+    grass.run_command('r.buffer',flags='z', input='interstates',
+        output='intbuf', dist=60)
+    grass.mapcalc('cross=if(intbuf && otherroads==6, 1, 0)')
+    grass.run_command('g.remove', rast='intbuf')
 
 
 def genoverlandTravelTime30():
     """Generate traveltime map: overlandTravelTime30
-       @input maps: landcover, otherroads interstatesBase
-       @intermediate maps: landTravelSpeed30, othTravelSpeed30, interstates, 
+       @input maps: landcover, otherroads interstates
+       @intermediate maps: landTravelSpeed30, othTravelSpeed30,
                            overlandTravelSpeed30
        @output map: overlandTravelTime30 
     """
-    grass.run_command('g.region', res=30)
-
     # landcover -> landTravelSpeed30
     grass.run_command('r.recode', input="landcover", 
         output="landTravelSpeed30", rules=GRAPHS+"/lu_speeds.recode")
     # otherroads ->otherroadsSpeedBase = othTravelSpeed30
     grass.run_command('v.to.rast', input="otherroads", 
         output="othTravelSpeed30", col="speed")
+    grass.run_command('r.null', map='othTravelSpeed30', null=0)
 
-    # interstatesBase -> interstates
-    grass.mapcalc ("interstates=if(interstatesBase==0,null(),1)")
-    
     # othTravelSpeed30, landTravelSpeed30, interstates -> overlandTravelSpeed30
     grass.mapcalc("overlandTravelSpeed30=if(othTravelSpeed30, \
         othTravelSpeed30,if(interstates,0,landTravelSpeed30))")
     # overlandTravelSpeed30 -> overlandTravelTime30
     grass.mapcalc("overlandTravelTime30 =if($speed>0,1.8/$speed, null())", 
         speed="overlandTravelSpeed30")
-
-    exportRaster('overlandTravelTime30')
 
 
 def genintTravelTime30():
@@ -144,8 +148,6 @@ def genintTravelTime30():
        @intermediate maps: intTravelSpeed30
        @output mpa: intTravelTime30
     """
-    grass.run_command('g.region', res=30)
-    
     # interstatesBase -> interstatesSpeedBase = intTravelSpeed30
     grass.run_command('v.to.rast', input="interstatesBase",
         output="intTravelSpeed30", col="speed")
@@ -155,24 +157,8 @@ def genintTravelTime30():
 
     exportRaster('intTravelTime30')
 
-
-def gencentersBuffer(centers, outfilename='ctmp'):
-    """Generate a 6*6 buffer for centers
-       @input maps: centers
-       @intermediate maps: None
-       @output map: outfilename
-    """
-    grass.run_command('g.region', res=30)
-
-    grass.run_command('v.to.rast', input=centers, output=outfilename, 
-        use='val', value=1, overwrite=True)
-
-    grass.run_command('r.buffer', input=outfilename, output=outfilename, dist='180')
-    grass.mapcalc(outfilename + '=if(' + outfilename +')')
-    exportRaster(outfilename)
-
-
 ################# Multicost to Travel Time On Roads Model ###################
+##### this function is a sample to be used in cities.py #####
 def multicost4travelcost(centersMap, outputname, maxcostmin):
     grass.run_command('r.multicost', input="overlandTravelTime30", 
         m2="intTravelTime30", xover="cross", start_rast=centersMap, 
@@ -303,35 +289,37 @@ def genProbmap(centerscorelist, attscorelist, problayername):
 ##################### Main Functions to be called ######################
 def gencentersAttmaps(empcenters, popcenters):
     # pop/emp centers attractive maps require landTravelTime30 and intTravelTime30
-    # print "--generate otherroads..."
-    # genotherroads()
-    # print "--generate interstatesBase..."
-    # geninterstatesBase()
-    # print "--generate cross..."
-    # gencross()
-    # print "--generate overlandTravelTime30..."
-    # genoverlandTravelTime30()
-    # print "--generate landTravelTime30..."
-    # genintTravelTime30()
-
-    # TODO: gencentersBuffer should not use ctmp as output for both pop and emp
+    print "--generate otherroads..."
+    genotherroads()
+    exportAllforms('otherroads')
+    print "--generate interstatesBase..."
+    geninterstatesBaseAndinterstates()
+    exportAllforms('interstates')
+    print "--generate cross..."
+    gencross()
+    exportAllforms('cross')
+    print "--generate overlandTravelTime30..."
+    genoverlandTravelTime30()
+    exportAllforms('overlandTravelTime30')
+    print "--generate landTravelTime30..."
+    genintTravelTime30()
+    exportAllforms('intTravelTime30')
     
-    # TODO: the genSimMap color has problems.
-    # the centers has many 0 and 9999.
-    # other costs has many -1.
-    # slope_att = -1
+    # TODO: slope_att = -1
+
+    # TODO: the centers maps seems not been interpolated. check if this is due to genSimMap...
 
     print "--generate population centers attractive map..."
-    gencentersBuffer(POPCENTERS) 
     os.system("python bin/cities.py -p total_pop -n pop -m grav popcentersBase > Log/popatt.log")
     exportAllforms("pop_att")
+
+    exit(1)
 
     print "--generate population centers travelcost map..."
     os.system("python bin/cities.py -p total_pop -n pop -m cost popcentersBase > Log/popcost.log")
     exportAllforms("pop_cost")
 
     print "--generate employment centers attractive map..."
-    gencentersBuffer(EMPCENTERS) 
     os.system("python bin/cities.py -p total_emp -n emp -m grav empcentersBase > Log/empatt.log")
     exportAllforms("emp_att")
 
@@ -380,8 +368,8 @@ def main():
     # grass.run_command('g.mlist', type='rast')   
     
     gencentersAttmaps(EMPCENTERS, POPCENTERS)
-    genOtherAttmaps()
-    genProbmaps()
+    # genOtherAttmaps()
+    # genProbmaps()
 
     
 

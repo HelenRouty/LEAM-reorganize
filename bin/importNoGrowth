@@ -17,6 +17,7 @@ do
   echo "processing $arg to location $loc"
   v.in.ogr --overwrite dsn=$arg output=nogrowth location=$loc snap=10 min_area=300
   layer=${arg/.shp/}
+  echo "layer is $layer"
   v.proj --overwrite input=nogrowth mapset=PERMANENT location=$loc output=$layer
 
   echo "removing import location"

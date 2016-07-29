@@ -28,11 +28,13 @@ def normalize(layer, result=""):
     "normalize a composity gravity map"
     if (result==""):
         result=layer+"_norm"
+
     for l in os.popen('r.univar %s' % layer):
         print l
         if l.startswith('maximum:'):
-            s, max = l.strip().split()
             break
+
+    s, max = l.strip().split()
     os.system('r.mapcalc %s=%s/%s' % (result,layer,max))
 
 
@@ -77,6 +79,8 @@ def make_city_tt(cities, cat, overland='overlandTravelTime30',
     grass.run_command('r.multicost', input=overland, m2=interstates, 
         xover=xover, start_rast=classlayer, output=travelcost, max_cost=maxcost)
     grass.run_command('g.remove', rast=classlayer)
+    #grass.run_command('r.out.gdal', input=travelcost, 
+    #    output='./Data/'+travelcost+".tif", type='Float64')
     return travelcost
 
 def parse_args():
@@ -93,8 +97,8 @@ def parse_args():
         help='preserves the individual city travel time maps (city##_tt)')
     parse.add_option('-r', '--rebuild', default=False, action="store_true",
         help='rebuild city travel time maps even if one exists')
-    parse.add_option('-m', '--mode', default="max",
-        help='operate in either max or gravity mode (default=max)')
+    parse.add_option('-m', '--mode', default="grav",
+        help='operate in either max or gravity mode (default=grav)')
     parse.add_option('-n', '--name', default="cities",
         help='the name of the output attractor (default=cities)')
 
@@ -106,7 +110,7 @@ def parse_args():
 
     if opts.mode == 'grav':
         dest = opts.name + '_att'
-        method = '$dest=$dest+if(isnull($tt), 0.0, $pop/($tt+40.0)^2)'
+        method = '$dest=$dest+if(isnull($tt), 0.0, $pop/($tt+30.0)^2)'
         grass.mapcalc("$dest=0.0", dest=dest)
     elif opts.mode == 'max':
         dest = opts.name +'_max_att'
@@ -121,7 +125,7 @@ def parse_args():
     else:
         parse.error("option mode must be max or gravity or cost")
 
-    return cities, dest, method, opts.pop
+    return cities, dest, method, opts.pop, opts.maxtime
 
 
 def main():
@@ -131,7 +135,7 @@ def main():
     grass.run_command('g.gisenv', set='OVERWRITE=1')
     mapset = grass.gisenv()['MAPSET']
     
-    cities, dest, method, colname = parse_args()
+    cities, dest, method, colname, maxtime = parse_args()
 
     # ywkim added to figure out the number of class
     # create the list for the unique class category
@@ -156,16 +160,10 @@ def main():
     
     for classVal, aveVal in zip(classList, classAveList):
         print "Class =  ", classVal, ", Average = " , aveVal
-        classtravelcost = make_city_tt(cities, classVal, maxcost=opts.maxtime)
+        classtravelcost = make_city_tt(cities, classVal, maxcost=maxtime)
         grass.mapcalc(method, dest=dest, pop=aveVal, tt=classtravelcost)
 
-    exit(1)
-    
-    """ TODO: These null values are for the landuse types ignored by
-              original speed charts of the original leam program.
-              Fix it!
-    """ 
-    normalize(dest)
+    # normalize(dest) ==> use .SFA
     grass.run_command('r.null', map=dest, null=0.0) 
     # As all multicost model maps' smallest values are 0,
     # it makes sense to set all null values to be 0.

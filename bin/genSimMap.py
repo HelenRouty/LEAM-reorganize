@@ -62,6 +62,7 @@ def getQuantileList(mapfilename, numbaskets):
     arrlen = len(arr)
     basketsize = arrlen/numbaskets
     sortedarr = np.sort(arr)
+    sortedarr = sortedarr[sortedarr>=0] # mapserver cannot recognize negatives
     arrticks = sortedarr[0:arrlen-1:basketsize]
     print basketsize
     print arrticks
