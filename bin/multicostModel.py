@@ -27,7 +27,7 @@ def grassConfig(location, mapset,
     os.environ['GRASS_OVERWRITE'] = '1'
     sys.path.append(os.path.join(gisbase, 'etc', 'python'))
 
-    global grass
+    global grass 
     __import__('grass.script')
     grass = sys.modules['grass.script']
     from grass.script.setup import init
@@ -44,21 +44,38 @@ def importVector(fullpathfilename, layername):
 def exportRaster(layername, valuetype='Float64'): #'UInt16'
     outfilename = 'Data/'+layername+'.tif'
     if grass.run_command('r.out.gdal', input=layername, 
-      output=outfilename, type=valuetype):
+      output=outfilename, type=valuetype, quiet=True):
         raise RuntimeError('unable to export raster map ' + layername )
 
 
-def export_asciimap(layername, nullval=-1):
+def export_asciimap(layername, nullval=-1, integer=False):
     """Export a raster layer into asciimap. The output folder is 'Data/'.
-       @param: layername is the raster layer name.
+       @param: layername (str)     the raster layer name.
+               nullval   (int)     the output for null value.
+               integer   (boolean) if the ascii is integer or Float64
     """
     outfilename = 'Data/'+layername+'.txt'
-    if grass.run_command('r.out.ascii', input=layername, output=outfilename, null=nullval):
-        raise RuntimeError('unable to export ascii map ' + layername)
+    if integer==True:
+        if grass.run_command('r.out.ascii', input=layername, output=outfilename, 
+            null=nullval, quiet=True, flags='i'):
+            raise RuntimeError('unable to export ascii map ' + layername)
+    else:
+        if grass.run_command('r.out.ascii', input=layername, output=outfilename, 
+            null=nullval, quiet=True):
+            raise RuntimeError('unable to export ascii map ' + layername)
 
 
 def publishSimMap(maptitle, description='', numcolors=NUMCOLORS, 
     site=site, url=resultsdir, regioncode=CHICAGOREGIONCODE):
+    """Publish the raster map .tif to the website.
+       @ inputs: maptitle (str) the output map name
+                 description (str) the description to be shown for each map on the website
+                 site (str) the website to be published to.
+                 url  (str) a specific senario url
+                 numcolors (int) the number of colors to be assigned to the map
+                       the actual number of colors may be less than expected
+                 regioncode (int) the epsg region code. Chicago is 26196.
+    """
     simmap  = 'Data/%s.tif' % maptitle
     mapfile = 'Outputs/%s.map' % maptitle
 
@@ -75,9 +92,16 @@ def publishSimMap(maptitle, description='', numcolors=NUMCOLORS,
     site.updateSimMap(popattrurl, title=maptitle, description=maptitle)
 
 
-def exportAllforms(mapfile):
-    exportRaster(mapfile, 'Float64')
-    export_asciimap(mapfile)
+def exportAllforms(mapfile, valuetype='Float64'):
+    """ Float64 has the most accurate values. However, Float64
+        is slow in processing the map to show in browser. 'UInt16' 
+        is the best.
+    """
+    exportRaster(mapfile, valuetype)
+    if valuetype == 'UInt16':
+        export_asciimap(mapfile, integer=True)
+    else:
+        export_asciimap(mapfile)
     publishSimMap(mapfile)
 
 ################## Fucntions for centers and travel time maps #################
@@ -173,12 +197,12 @@ def roadsTravelCost(roadsClassName_list=[('staterd', 2), ('county', 3), ('road',
     for layername, classnum in roadsClassName_list:
         start = time.time()
         outname = str(layername)+"_cost"
-        print "caculating " + outname + "..."
+        print "  *caculating " + outname + "..."
         grass.mapcalc('centers=if(otherroads==' + str(classnum) + ',1,null())')
         grass.run_command('r.multicost', input="overlandTravelTime30",
             m2="intTravelTime30", xover="cross", start_rast="centers", 
             output=outname)
-        exportAllforms(outname)
+        exportAllforms(outname, 'UInt16')
         print outname," takes ", time.time()-start,"s."
 
 
@@ -230,7 +254,7 @@ def bufferAttraction(layername, layercond_str):
 
 ##################### Slope Attraction ########################
 ######  Required files in GRASS: demBase #########
-def slopeAttraction(layername="slope_att"):
+def genslopeCost(layername="slope_cost"):
     """Caculate slope attraction
        @input: demBase
        @output: slope_att
@@ -241,12 +265,12 @@ def slopeAttraction(layername="slope_att"):
 
 ##################### Transform Attrmaps to scores ######################
 ####### Required files: sfa files in ./SFA folder. ##########
-def att2score(attname, scorename):
+def cost2score(costname, scorename):
     """Transform attractiveness map to a score map using SFA files.
-       @input: attractiveness map without _att
+       @input: attractiveness map without _cost
        @output: result score map name
     """
-    grass.run_command('r.recode', input=attname+"_att", output=scorename+"_score", 
+    grass.run_command('r.recode', input=costname+'_cost', output=scorename+"_score", 
                                   rules="SFA/"+scorename+".sfa")
     # Setting to null so that there won't be weird values appear
     grass.run_command('r.null', map=scorename+"_score", null=0.0)
@@ -258,32 +282,36 @@ def att2score_centers(attname, scorename):
        @input: attractiveness map without _att
        @output: result score map name
     """
-    #if (scorename != 'pop_com' and scorename != 'pop_res'):
     grass.run_command('r.recode', input=attname+"_att", output=scorename+"_score", 
                                   rules="SFA/"+scorename+".sfa")
-    export_asciimap(scorename+"_score")
     weight = WEIGHTS[scorename]
-    grass.mapcalc('%s_score=pow(%s_score,%i)' %(scorename, scorename, weight))
+    grass.mapcalc('%s_score=pow(%s_score,%f)' %(scorename, scorename, weight))
     export_asciimap(scorename+"_score")
     return scorename+"_score"
 
 
-def genProbmap(centerscorelist, attscorelist, problayername):
+def genProbmap(centerscorelist, costscorelist, problayername, multiplier=100000):
     """ From attrmaps to generate probmap.
         @input: centerscorelist is a list of (attname, scorename) pairs. 
                 E.g. centerscorelist can be:
                 [('pop', 'pop_com'), ('emp', 'emp_com'),
                  ('transport', 'transport_com')] for 'probmap_com' map.
                 attlist can be [('forest', 'forest'), ('water', 'water'), ('slope', 'slope')]
+                multiplier is hard coded to multiply a integer to the final probmap.
+                TODO: multiplier should be an automate process.
         @output: probmap_com or probmap_res (commercial/residential)
+                 probmap_com_percentage or probmap_res_percentage
+                 _percentage maps are probmap * 100 to have integer values to 
+                 speed up showing on browser.
     """
     grass.mapcalc(problayername+'=1.0')
-    for att, score in attscorelist:
-        score = att2score(att, score)
+    for cost, score in costscorelist:
+        score = cost2score(cost, score)
         grass.mapcalc(problayername +'='+ problayername + '*' + score)
     for att, score in centerscorelist:
         score = att2score_centers(att, score)
-    grass.mapcalc(problayername +'='+ problayername + '*' + score)     
+        grass.mapcalc(problayername +'='+ problayername + '*' + score) 
+    grass.mapcalc("%s_percentage = %s*%i" %(problayername, problayername, multiplier))    
     grass.run_command('g.remove', rast=score)
 
 ##################### Main Functions to be called ######################
@@ -304,32 +332,25 @@ def gencentersAttmaps(empcenters, popcenters):
     print "--generate landTravelTime30..."
     genintTravelTime30()
     exportAllforms('intTravelTime30')
-    
-    # TODO: slope_att = -1
-
-    # TODO: the centers maps seems not been interpolated. check if this is due to genSimMap...
 
     print "--generate population centers attractive map..."
     os.system("python bin/cities.py -p total_pop -n pop -m grav popcentersBase > Log/popatt.log")
-    exportAllforms("pop_att")
-
-    exit(1)
+    exportAllforms("pop_att", 'UInt16')
 
     print "--generate population centers travelcost map..."
     os.system("python bin/cities.py -p total_pop -n pop -m cost popcentersBase > Log/popcost.log")
-    exportAllforms("pop_cost")
+    exportAllforms("pop_cost", 'UInt16')
 
     print "--generate employment centers attractive map..."
     os.system("python bin/cities.py -p total_emp -n emp -m grav empcentersBase > Log/empatt.log")
-    exportAllforms("emp_att")
+    exportAllforms("emp_att", 'UInt16')
 
     print "--generate employment centers travelcost map..."
     os.system("python bin/cities.py -p total_emp -n emp -m cost empcentersBase > Log/empcost.log")
-    exportAllforms("emp_cost")
-
+    exportAllforms("emp_cost", 'UInt16')
 
 def genOtherAttmaps():
-    print "--generate staterd, county, road, and ramp attractiveness..."
+    # print "--generate staterd, county, road, and ramp attractiveness..."
     roadsClassName_list = [('staterd', 2), ('county', 3), ('road', 4), ('ramp', 6)]    
     roadsTravelCost(roadsClassName_list)
     print "--generate intersection travel cost map..."
@@ -337,26 +358,26 @@ def genOtherAttmaps():
     exportAllforms("intersect_cost")
     print "--generate transport attraction map using statered_cost, county_cost, road_cost, ramp_cost, and intersect_cost..."
     transportAttraction()
-    print "export transport attraction ascii map..."
     exportAllforms("transport_att")
     print "--generate water attraction map..."
-    bufferAttraction("water_att", watercondstr())
-    exportAllforms("water_att")
+    bufferAttraction("water_cost", watercondstr())
+    exportAllforms("water_cost")
     print "--generate forest attraction map..."
-    bufferAttraction("forest_att", forestcondstr())
-    exportAllforms("forest_att")
+    bufferAttraction("forest_cost", forestcondstr())
+    exportAllforms("forest_cost")
     print "--generate slope attraction map..."
-    exportAllforms("slope_att")
+    genslopeCost()
+    exportAllforms("slope_cost", 'UInt16')
 
 
 def genProbmaps():
     print "--generate probmap_com..."
-    genProbmap(COMSCORELIST, ATTSCORELIST, 'probmap_com')
-    exportAllforms('probmap_com')
+    genProbmap(COMSCORELIST, COSTSCORELIST, 'probmap_com', 10000000)# probcom has -07 values
+    exportAllforms('probmap_com_percentage') 
 
     print "--generate probmap_res..."
-    genProbmap(RESSCORELIST, ATTSCORELIST, 'probmap_res')
-    exportAllforms('probmap_res')
+    genProbmap(RESSCORELIST, COSTSCORELIST, 'probmap_res', 100000)
+    exportAllforms('probmap_res_percentage')
 
 
 def main():
@@ -368,8 +389,8 @@ def main():
     # grass.run_command('g.mlist', type='rast')   
     
     gencentersAttmaps(EMPCENTERS, POPCENTERS)
-    # genOtherAttmaps()
-    # genProbmaps()
+    genOtherAttmaps()
+    genProbmaps()
 
     
 

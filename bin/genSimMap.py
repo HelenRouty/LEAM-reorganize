@@ -69,7 +69,7 @@ def getQuantileList(mapfilename, numbaskets):
     # if the maximum or the base values are too much, remove them.
     # TODO: this is a brute force solution. Varies maps may have different
     # cases. Should be improved to cater all map cases.
-    if len(arrticks) > 3                                and \
+    if len(arrticks) > 3            and \
        arrticks[-1] == arrticks[-2] and \
        arrticks[-2] == arrticks[-3] and \
        arrticks[-3] == arrticks[-4]:
@@ -84,6 +84,11 @@ def getQuantileList(mapfilename, numbaskets):
        arrticks = sortedarr[0:len(sortedarr)-1:len(sortedarr)/numbaskets]
        print arrticks, " after remove the base"
 
+    # # to speed up the maps showing on the browser, we set all ticks to be
+    # # integer. If the maximum value is less than 1 or is smaller than 
+    # # number of colors, we multiply all values with 10 until there are
+    # # large enough integers.
+
     # multiplier = 1
     # while(arrticks[-1]*multiplier < numbaskets):
     #     multiplier *= 10
@@ -91,11 +96,10 @@ def getQuantileList(mapfilename, numbaskets):
     #     arrticks = [tick * multiplier for tick in arrticks]
 
     retarr = []
-    retarr.append(arrticks[0])
-    for i in xrange(1, numbaskets):
+    retarr.append(int(arrticks[0]))
+    for i in xrange(1, len(arrticks)):   # numbaksets may not equal to len(arrticks)
         if arrticks[i] != arrticks[i-1]:
-            # retarr.append(int(arrticks[i]))
-            retarr.append(arrticks[i])
+            retarr.append(int(arrticks[i]))
 
     return retarr, len(retarr)
 

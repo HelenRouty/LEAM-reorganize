@@ -30,7 +30,7 @@ COMSCORELIST = [('pop'      , 'pop_com'      ),
 RESSCORELIST = [('pop'      , 'pop_res'      ),
                 ('emp'      , 'emp_res'      ),
                 ('transport', 'transport_res')]
-ATTSCORELIST = [('forest'   , 'forest'       ),
+COSTSCORELIST= [('forest'  , 'forest'       ),
                 ('water'    , 'water'        ),
                 ('slope'    , 'slope'        )]
 
