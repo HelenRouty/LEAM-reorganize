@@ -16,7 +16,8 @@ resultsdir = sys.argv[1]
 user = sys.argv[2]
 passwd = sys.argv[3]
 
-site = LEAMsite(resultsdir, user, passwd)
+
+
 ######################## Basic GRASS and site setup Functions #################################
 def grassConfig(location, mapset,
     gisbase='/usr/local/grass-6.4.5svn', gisdbase='.'):
@@ -65,8 +66,8 @@ def export_asciimap(layername, nullval=-1, integer=False):
             raise RuntimeError('unable to export ascii map ' + layername)
 
 
-def publishSimMap(maptitle, description='', numcolors=NUMCOLORS, 
-    site=site, url=resultsdir, regioncode=CHICAGOREGIONCODE):
+def publishSimMap(maptitle, site, url, description='',
+    numcolors=NUMCOLORS, regioncode=CHICAGOREGIONCODE):
     """Publish the raster map .tif to the website.
        @ inputs: maptitle (str) the output map name
                  description (str) the description to be shown for each map on the website
@@ -92,17 +93,17 @@ def publishSimMap(maptitle, description='', numcolors=NUMCOLORS,
     site.updateSimMap(popattrurl, title=maptitle, description=maptitle)
 
 
-def exportAllforms(mapfile, valuetype='Float64'):
+def exportAllforms(maplayer, valuetype='Float64'):
     """ Float64 has the most accurate values. However, Float64
         is slow in processing the map to show in browser. 'UInt16' 
         is the best.
     """
-    exportRaster(mapfile, valuetype)
+    exportRaster(maplayer, valuetype)
     if valuetype == 'UInt16':
         export_asciimap(mapfile, integer=True)
     else:
         export_asciimap(mapfile)
-    publishSimMap(mapfile)
+    publishSimMap(mapfile, site, resultsdir)
 
 ################## Fucntions for centers and travel time maps #################
 ######  Required files in GRASS: otherroadsBase, landcover ########
@@ -383,6 +384,9 @@ def genProbmaps():
 def main():
     sys.stdout = open('./Log/multicostModel.stdout.log', 'w')
     sys.stderr = open('./Log/multicostModel.stderr.log', 'w')
+
+    global site
+    site = LEAMsite(resultsdir, user, passwd)
 
     grassConfig('grass', 'model')
     

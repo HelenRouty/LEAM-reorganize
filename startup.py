@@ -19,6 +19,9 @@ from leamsite import LEAMsite
 from weblog import RunLog
 from projectiontable import ProjTable
 from Utils import createdirectorynotexist
+import genYearChangemap # parameters are imported in genYearChangemap
+from multicostModel import publishSimMap
+from parameters import NUMCOLORS, CHICAGOREGIONCODE
 
 scenariosurl = 'http://portal.leam.illinois.edu/chicago/luc/scenarios/'
 
@@ -268,6 +271,14 @@ def import_vectormap(fname, layer=''):
 
     return layer
 
+def vec2rast(maplayer):
+    """Convert vector map to raster of the same name using value of 1.
+       Set all null values to be 0.
+    """
+    grass.run_command('v.to.rast', input=maplayer, output=maplayer, 
+        use='val', value='1', quiet=True, overwrite=True)
+    grass.run_command('r.null', map=maplayer, null='0', quiet=True)
+
 ############# Download map functions using links in config files(luc) ########################
 def get_landcover(url):
     # load landcover if one doesn't already exists
@@ -388,7 +399,74 @@ def processDriverSets(driver):
     shp = get_shapefile(driver['popcenters']['popcenter'])
     import_vectormap(shp, layer='popcentersBase')
 
-    return driver['year'], False # return the startyear,
+    return driver['year'], False # return the startyear, iscachedprobmap
+
+def processProjectionSet(projection):
+    # print "--importing boundary map to be raster............."
+    # boundary = get_shapefile(projection['layer'])
+    # import_vectormap(boundary, layer='boundary')
+    # vec2rast('boundary')
+
+    # print "--importing pop_density map to be raster............."
+    # popdensity = get_shapefile(projection['pop_density'])
+    # import_vectormap(popdensity, layer='pop_density')
+    # vec2rast('pop_density')
+
+    # print "--importing emp_density map to be raster............."
+    # empdensity = get_shapefile(projection['emp_density'])
+    # import_vectormap(empdensity, layer='emp_density')
+    # vec2rast('emp_density')
+
+    print "--fetch demand table from website............."
+    demandstr = site.getURL(projection['graph']).getvalue()
+    return demandstr
+
+######################## Export Results #################################
+#### Todo: merge the following code with the ones in multicostModel
+
+def exportRaster(layername, valuetype='Float64'): #'UInt16'
+    outfilename = 'Data/'+layername+'.tif'
+    if grass.run_command('r.out.gdal', input=layername, 
+      output=outfilename, type=valuetype, quiet=True):
+        raise RuntimeError('unable to export raster map ' + layername )
+
+
+def export_asciimap(layername, nullval=-1, integer=False):
+    """Export a raster layer into asciimap. The output folder is 'Data/'.
+       @param: layername (str)     the raster layer name.
+               nullval   (int)     the output for null value.
+               integer   (boolean) if the ascii is integer or Float64
+    """
+    outfilename = 'Data/'+layername+'.txt'
+    if integer==True:
+        if grass.run_command('r.out.ascii', input=layername, output=outfilename, 
+            null=nullval, quiet=True, flags='i'):
+            raise RuntimeError('unable to export ascii map ' + layername)
+    else:
+        if grass.run_command('r.out.ascii', input=layername, output=outfilename, 
+            null=nullval, quiet=True):
+            raise RuntimeError('unable to export ascii map ' + layername)
+
+
+def exportAllforms(maplayer, site, resultsdir, description='', valuetype='Float64'):
+    """ Float64 has the most accurate values. However, Float64
+        is slow in processing the map to show in browser. 'UInt16' 
+        is the best.
+    """
+    exportRaster(maplayer, valuetype)
+    if valuetype == 'UInt16':
+        export_asciimap(maplayer, integer=True)
+    else:
+        export_asciimap(maplayer)
+    publishSimMap(maplayer, site, resultsdir, description, 
+                  numcolors=NUMCOLORS, regioncode=CHICAGOREGIONCODE)
+
+def publishResults(title, site, resultsdir):
+    exportAllforms(title+"_change", site, resultsdir)
+    exportAllforms(title+"_summary", site, resultsdir)
+    exportAllforms(title+"_ppcell", site, resultsdir)
+    exportAllforms(title+"_empcell", site, resultsdir)
+    exportAllforms(title+"_year", site, resultsdir)
 
 
 def main():
@@ -415,23 +493,28 @@ def main():
     title = luc.scenario['title']
     global site, runlog # run.log will be stored in Log repository
     site = LEAMsite(resultsdir, user=user, passwd=password)
-    runlog = RunLog(resultsdir, site, initmsg='Scenario ' + title)
-    runlog.p('started at '+jobstart)
+    # runlog = RunLog(resultsdir, site, initmsg='Scenario ' + title)
+    # runlog.p('started at '+jobstart)
 
-    global projectiontable
-    projectiontable = ProjTable()
+    # global projectiontable
+    # projectiontable = ProjTable()
     
-    growth = dict(deltapop=[0.0], deltaemp=[0.0])
-    if luc.growth: # note growthmap[0]...should change luc, using luc_new
-        print 'Processing Growth driver set.............'
-        startyear, isprobmapcached = processDriverSets(luc.growthmap[0])
-        if not isprobmapcached:
-            print "Building Probability Maps.............."
-            cmd = 'python bin/multicostModel.py %s %s %s > ./Log/probmap.log 2>&1'\
-            % (resultsdir, user, password)
-            check_call(cmd.split())
+    # growth = dict(deltapop=[0.0], deltaemp=[0.0])
+    # if luc.growth: # note growthmap[0]...should change luc, using luc_new
+    #     print 'Processing Growth driver set.............'
+    #     startyear, isprobmapcached = processDriverSets(luc.growthmap[0])
+    #     if not isprobmapcached:
+    #         print "Building Probability Maps.............."
+    #         cmd = 'python bin/multicostModel.py %s %s %s > ./Log/probmap.log 2>&1'\
+    #         % (resultsdir, user, password)
+    #         check_call(cmd.split())
 
-
+    if luc.growthmap:
+        # print 'Processing Growth Projection set........'
+        # demandstr = processProjectionSet(luc.growth[0])
+        # genYearChangemap.executeGLUCModel(demandstr, title)
+        publishResults(title, site, resultsdir)
+         
 
 
 
