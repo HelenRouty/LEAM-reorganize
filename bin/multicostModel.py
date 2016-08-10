@@ -138,7 +138,7 @@ def gencross():
     """
     # interstates, otherroads -> cross
     grass.run_command('r.buffer',flags='z', input='interstates',
-        output='intbuf', dist=60)
+        output='intbuf', dist=60) # z to ignore zero value data cells
     grass.mapcalc('cross=if(intbuf && otherroads==6, 1, 0)')
     grass.run_command('g.remove', rast='intbuf')
 
@@ -319,19 +319,19 @@ def gencentersAttmaps(empcenters, popcenters):
     # pop/emp centers attractive maps require landTravelTime30 and intTravelTime30
     print "--generate otherroads..."
     genotherroads()
-    exportAllforms('otherroads')
+    exportAllforms('otherroads', 'UInt16') # otherroads have road class 1-6
     print "--generate interstatesBase..."
     geninterstatesBaseAndinterstates()
-    exportAllforms('interstates')
+    exportAllforms('interstates', 'UInt16')
     print "--generate cross..."
     gencross()
-    exportAllforms('cross')
+    exportAllforms('cross', 'UInt16')     # cross has values either 0 or 1
     print "--generate overlandTravelTime30..."
     genoverlandTravelTime30()
-    exportAllforms('overlandTravelTime30')
-    print "--generate landTravelTime30..."
-    genintTravelTime30()
-    exportAllforms('intTravelTime30')
+    exportAllforms('overlandTravelTime30')# overlandTravelTime30 is (0, 1) 
+    print "--generate landTravelTime30..." 
+    genintTravelTime30()                  # intTravelTime30 has one uniq value
+    exportAllforms('intTravelTime30', 'UInt16')
 
     print "--generate population centers attractive map..."
     os.system("python bin/cities.py -p total_pop -n pop -m grav popcentersBase > Log/popatt.log")
@@ -355,7 +355,7 @@ def genOtherAttmaps():
     roadsTravelCost(roadsClassName_list)
     print "--generate intersection travel cost map..."
     intersectionTravelCost()
-    exportAllforms("intersect_cost")
+    exportAllforms("intersect_cost", 'UInt16')
     print "--generate transport attraction map using statered_cost, county_cost, road_cost, ramp_cost, and intersect_cost..."
     transportAttraction()
     exportAllforms("transport_att")
@@ -381,13 +381,16 @@ def genProbmaps():
 
 
 def main():
+    sys.stdout = open('./Log/multicostModel.stdout.log', 'w')
+    sys.stderr = open('./Log/multicostModel.stderr.log', 'w')
+
     grassConfig('grass', 'model')
     
     # exportRaster('emp_centers4_47_98')
     # importVector('Data/FID4_47_98', EMPCENTERS) 
     # print "list available raster maps in database..."
     # grass.run_command('g.mlist', type='rast')   
-    
+
     gencentersAttmaps(EMPCENTERS, POPCENTERS)
     genOtherAttmaps()
     genProbmaps()

@@ -16,4 +16,5 @@ Temp/*
 *.pyc
 *.make
 *.log
-startup.py
+startup
+startup/*

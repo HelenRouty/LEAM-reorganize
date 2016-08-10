@@ -63,6 +63,14 @@ def getQuantileList(mapfilename, numbaskets):
     basketsize = arrlen/numbaskets
     sortedarr = np.sort(arr)
     sortedarr = sortedarr[sortedarr>=0] # mapserver cannot recognize negatives
+    
+    # if the number of uniq values is less than 30, then return 
+    # the uniq values directly. Thus, maps composed of only 0 and 1
+    # can be colored without losing its base values.
+    uniqarr = np.unique(sortedarr)
+    if len(uniqarr) <= 30:
+        return uniqarr, len(uniqarr)
+
     arrticks = sortedarr[0:arrlen-1:basketsize]
     print basketsize
     print arrticks

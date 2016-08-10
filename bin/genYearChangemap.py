@@ -130,6 +130,7 @@ def executeGLUCModel(mode='growth', projid=scenatriotitle):
     # generate GLUC model inputs
     # TODO: write PROJID.conf
     genYearlyDemandGraph()
+    exit(1)
     genBilGLUCInputs()
 
     cmd = 'make -f gluc.make start'

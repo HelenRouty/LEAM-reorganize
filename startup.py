@@ -28,7 +28,8 @@ def parseFlags():
     """
     usage = "Usage: %prog [options] arg"
     parser = OptionParser(usage=usage, version='%prog')
-    parser.add_option('-P', '--projectid', help='projectid')
+    parser.add_option('-c', '--config', metavar='FILE', default=False,
+        help='configuration FILE (default=stdin)')
     parser.add_option('-U', '--user', default=None,
         help='Portal user name (or PORTAL_USER environmental var)')
     parser.add_option('-X', '--password', default=None,
@@ -36,48 +37,46 @@ def parseFlags():
 
     (options, args) = parser.parse_args()
 
+    # supervisor configuration will parse user and password to leampoll
+    # and leampoll will set PORTAL_USER and PORTAL_PASSWORD before 
+    # run this startup.py
     user = options.user or os.environ.get('PORTAL_USER', '')
     password = options.password or os.environ.get('PORTAL_PASSWORD', '')
+
     if not user or not password:
         sys.stderr.write('User and password information is required. '
                 'Please set using -U <username> and -X <password> '
                 'on command line or using environmental variables.\n')
         exit(1)
 
-    if not options.projectid:
-        sys.stderr.write('Project id (scenario id) is required. '
-            'Please set using -P <projectid> on command line.\n')
+    if not options.config:
+        sys.stderr.write('Config file url or filename is required. '
+            'Please set using -c <configurl> on command line.\n')
         exit(1)
 
-    return options.projectid, options.user, options.password
+    return options.config, user, password
 
 
-def get_config(projectid, user, password, configfile='config.xml'):
+def get_config(configurl, user, password, configfile='config.xml'):
     """get the configuration from any one of multiple sources
- 
-    Args:
-      uri (str): URL or file name
-      user (str): portal user 
-      password (str): portal password
-      fname (str): name of the config file to be written
+       @inputs: configurl (str): URL or file name
+                user (str): portal user 
+                password (str): portal password
+                configfile (str): name of the config file to be written
     """
-
     if os.path.exists(configfile):
         return configfile
-
-    projecturl = scenariosurl + projectid + "/getConfig"
-    print projecturl
-
+    print configurl
     try: 
-        r = requests.get(projecturl, auth=(user, password))
+        r = requests.get(configurl, auth=(user, password))
         r.raise_for_status()
         config = r.text
     except:
         e = sys.exc_info()[0]
-        print ("Error: Cannot access %s's configuration file in url %s. %s"
-                % (projectid, projecturl, e))
+        print ("Error: Cannot access configuration file in url %s. %s"
+                % (configurl, e))
         exit(1)
-    
+
     with open(configfile, 'w') as f:
         f.write(config)
 
@@ -142,6 +141,9 @@ def get_rasters(url, downloaddir='./Inputs'):
 
 
 def get_shapefile(url, downloaddir='./Inputs'):
+    """Download zipped shape file from the url to downloaddir
+       @output: name of the shapefile with downloaddir and unzipped folder
+    """
     # Note: we currently read the entire uncompressed content of
     # a file into a string and then write it to file.  Python 2.6
     # provides a mechanssm for reading files piecemeal.
@@ -173,7 +175,6 @@ def get_shapefile(url, downloaddir='./Inputs'):
 
     if not shapefile:
         raise RuntimeError('%s did not contain a shapefile' % url)
-
     return shapefile
 
 
@@ -197,7 +198,7 @@ def import_rastermap(fname, layer=''):
     Uses grass_safe to convert filename into a layer name if none is provided.
     @returns string - layer name
     """
-    runlog.debug('import_rastermap %s' % fname)
+    # runlog.debug('import_rastermap %s' % fname)
     if not layer:
         layer = grass_safe(fname)
     proj = grass.read_command('g.proj', flags='wf')
@@ -289,18 +290,27 @@ def get_landcover(url):
 def get_nogrowthmaps(urllist):
     """getNoGrowthLayers - downloads 0 or more shapefiles, convert
        them to raster and merge into the noGrowth layers
+       To use grass GIS to import vector file requires a new folder
+       to be created, and such folder name exist(error and fail otherwise).
+       v.in.org
+       Thus, each time during import, a tmp folder name is given.
+       # To run this, a Temp directory should be created.
     """
     print "--importing nogrowth layers............."
     script = './bin/importNoGrowth'
     logname = './Log/'+ os.path.basename(script)+'.log'
+    createdirectorynotexist('./Temp/')
 
     shplist = []
     for url in urllist:
-        shplist.append('"%s"' % get_shapefile(url))
+        layername = get_shapefile(url)
+        layername = os.path.basename(layername)
+        shplist.append('"%s"' % layername)
+
+    print ' '.join(shplist)
 
     check_call('%s %s > %s 2>&1' % (script, ' '.join(shplist), logname),
         shell=True)
-
 
 def get_cachedprobmap(url):
     """One scenario only allows one probmap. Once there is a probmap,
@@ -317,10 +327,12 @@ def get_cachedprobmap(url):
 
 
 def get_dem(url):
-    # load DEM layer only once and assume it never changes
-    # TODO: merge get_landcover, get_dem...
-    # TODO: upload dem file to the web server
+    """Currently the dem file is downloaded with the startup.py file
+       in the portal.leam.illinois.edu/svn/chicagotest.
+       TODO: modify leam.luc to set dem file url in config.xml
+    """
     d = grass.find_file('demBase', element='cell')
+    d['name'] = ''
     if d['name'] == '':
         try:
             print "--import dem map............."
@@ -328,12 +340,12 @@ def get_dem(url):
             import_rastermap('dem', layer='demBase')
         except Exception:
             runlog.warn('dem driver not found, checking for local version')
-            if os.path.exists('dem.zip'):
-                runlog.warn('local demo found, loading as demBase')
-                check_call('unzip dem.zip', shell=True)
+            if os.path.exists('./Inputs/dem.gtif'):
+                runlog.warn('local dem found, loading as demBase')
                 import_rastermap('dem.gtif', layer='demBase')
             else:
                 runlog.warn('local dem not found, creating blank demBase')
+                print "Error: local dem not found."
                 grass.mapcalc('demBase=float(0.0)')
     else:
         print "--local dem map found............."
@@ -361,7 +373,7 @@ def processDriverSets(driver):
     if isprobmapcached:
         return driver['year'], True
 
-    get_dem(driver['dem'])
+    get_dem(driver['dem']) 
 
     # ywkim added for importing regular roads
     print "--importing road network.............."
@@ -370,55 +382,52 @@ def processDriverSets(driver):
 
     print "--importing empcenters.............."
     shp = get_shapefile(driver['empcenters']['empcenter'])
-    layer = import_vectormap(shp, layer='empcentersBase')
+    import_vectormap(shp, layer='empcentersBase')
 
     print "--importing popcenters.............\n"
     shp = get_shapefile(driver['popcenters']['popcenter'])
-    layer = import_vectormap(shp, layer='popcentersBase')
+    import_vectormap(shp, layer='popcentersBase')
 
     return driver['year'], False # return the startyear,
 
 
 def main():
+    # The system stdout and stderr will be in /leam/scratch/<scenarioname>/<scenarioname>.log
     jobstart = time.asctime()
     os.environ['PATH'] = ':'.join(['./bin', os.environ.get('BIN', '.'),'/bin', '/usr/bin'])
-    projectid, user, password = parseFlags()
+    configurl, user, password = parseFlags()
     
     print "Parsing configuration file.............\n"
-    configfile = get_config(projectid, user, password)
-    # luc = LUC(configfile) #for luc_config_new.py
-    with open(configfile) as f:
-        config = f.read()
-    luc = LUC(config)
+    configfile = get_config(configurl, user, password)
+    luc = LUC(configfile)
     print luc.growthmap[0]
-    #luc has sorted luc.growthmap(drivers) in year and luc.growth(projections)
+    # luc has sorted luc.growthmap(drivers) in year and luc.growth(projections)
 
-    # print "Setting up GRASS environment.............\n"
-    # get_grassfolder(luc.scenario['grass_loc'], user, password)
-    # grasssetup.grassConfig()
-    # global grass
-    # grass = grasssetup.grass
+    print "Setting up GRASS environment.............\n"
+    get_grassfolder(luc.scenario['grass_loc'], user, password)
+    grasssetup.grassConfig()
+    global grass
+    grass = grasssetup.grass
     
-    # print "Connect to the LEAM file storage server............."
+    print "Connect to the LEAM storage server............."
     resultsdir = luc.scenario['results']
     print resultsdir, '\n'
     title = luc.scenario['title']
-    # global site, runlog # run.log will be stored in Log repository
-    # site = LEAMsite(resultsdir, user=user, passwd=password)
-    # runlog = RunLog(resultsdir, site, initmsg='Scenario ' + title)
-    # runlog.p('started at '+jobstart)
+    global site, runlog # run.log will be stored in Log repository
+    site = LEAMsite(resultsdir, user=user, passwd=password)
+    runlog = RunLog(resultsdir, site, initmsg='Scenario ' + title)
+    runlog.p('started at '+jobstart)
 
-    # global projectiontable
-    # projectiontable = ProjTable()
+    global projectiontable
+    projectiontable = ProjTable()
     
-    # growth = dict(deltapop=[0.0], deltaemp=[0.0])
+    growth = dict(deltapop=[0.0], deltaemp=[0.0])
     if luc.growth: # note growthmap[0]...should change luc, using luc_new
-        # print 'Processing Growth driver set.............'
-        # startyear, isprobmapcached = processDriverSets(luc.growthmap[0])
-        isprobmapcached = False # for test only
+        print 'Processing Growth driver set.............'
+        startyear, isprobmapcached = processDriverSets(luc.growthmap[0])
         if not isprobmapcached:
             print "Building Probability Maps.............."
-            cmd = 'python bin/multicostModel.py %s %s %s > ./Log/probmap.log 2>&1' \
+            cmd = 'python bin/multicostModel.py %s %s %s > ./Log/probmap.log 2>&1'\
             % (resultsdir, user, password)
             check_call(cmd.split())
 

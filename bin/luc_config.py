@@ -44,7 +44,7 @@ class LUC:
         return d
 
 
-    def __init__(self, config):
+    def __init__(self, configfile):
         """parses config file"""
         self.scenario = {}
         self.growth = []
@@ -52,6 +52,12 @@ class LUC:
         self.decline = []
         self.declinemap = []
 
+        try:
+            with open(configfile) as f:
+                config = f.read()
+        except IOError:
+            raise
+            
         tree = fromstring(config)
 
         # make sure this 
