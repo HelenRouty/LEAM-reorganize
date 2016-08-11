@@ -361,7 +361,7 @@ def get_dem(url):
     else:
         print "--local dem map found............."
 
-
+######################## Functions for main  #################################
 def processDriverSets(driver):
     """ Process each Driver Set and generate corresponding probmap.
         @inputs: driver (dict): a Driver Set
@@ -402,71 +402,43 @@ def processDriverSets(driver):
     return driver['year'], False # return the startyear, iscachedprobmap
 
 def processProjectionSet(projection):
-    # print "--importing boundary map to be raster............."
-    # boundary = get_shapefile(projection['layer'])
-    # import_vectormap(boundary, layer='boundary')
-    # vec2rast('boundary')
+    print "--importing boundary map to be raster............."
+    boundary = get_shapefile(projection['layer'])
+    import_vectormap(boundary, layer='boundary')
+    vec2rast('boundary')
 
-    # print "--importing pop_density map to be raster............."
-    # popdensity = get_shapefile(projection['pop_density'])
-    # import_vectormap(popdensity, layer='pop_density')
-    # vec2rast('pop_density')
+    print "--importing pop_density map to be raster............."
+    popdensity = get_shapefile(projection['pop_density'])
+    import_vectormap(popdensity, layer='pop_density')
+    vec2rast('pop_density')
 
-    # print "--importing emp_density map to be raster............."
-    # empdensity = get_shapefile(projection['emp_density'])
-    # import_vectormap(empdensity, layer='emp_density')
-    # vec2rast('emp_density')
+    print "--importing emp_density map to be raster............."
+    empdensity = get_shapefile(projection['emp_density'])
+    import_vectormap(empdensity, layer='emp_density')
+    vec2rast('emp_density')
 
     print "--fetch demand table from website............."
     demandstr = site.getURL(projection['graph']).getvalue()
     return demandstr
 
-######################## Export Results #################################
-#### Todo: merge the following code with the ones in multicostModel
-
-def exportRaster(layername, valuetype='Float64'): #'UInt16'
-    outfilename = 'Data/'+layername+'.tif'
-    if grass.run_command('r.out.gdal', input=layername, 
-      output=outfilename, type=valuetype, quiet=True):
-        raise RuntimeError('unable to export raster map ' + layername )
-
-
-def export_asciimap(layername, nullval=-1, integer=False):
-    """Export a raster layer into asciimap. The output folder is 'Data/'.
-       @param: layername (str)     the raster layer name.
-               nullval   (int)     the output for null value.
-               integer   (boolean) if the ascii is integer or Float64
-    """
-    outfilename = 'Data/'+layername+'.txt'
-    if integer==True:
-        if grass.run_command('r.out.ascii', input=layername, output=outfilename, 
-            null=nullval, quiet=True, flags='i'):
-            raise RuntimeError('unable to export ascii map ' + layername)
-    else:
-        if grass.run_command('r.out.ascii', input=layername, output=outfilename, 
-            null=nullval, quiet=True):
-            raise RuntimeError('unable to export ascii map ' + layername)
-
-
-def exportAllforms(maplayer, site, resultsdir, description='', valuetype='Float64'):
-    """ Float64 has the most accurate values. However, Float64
-        is slow in processing the map to show in browser. 'UInt16' 
-        is the best.
-    """
-    exportRaster(maplayer, valuetype)
-    if valuetype == 'UInt16':
-        export_asciimap(maplayer, integer=True)
-    else:
-        export_asciimap(maplayer)
-    publishSimMap(maplayer, site, resultsdir, description, 
-                  numcolors=NUMCOLORS, regioncode=CHICAGOREGIONCODE)
-
 def publishResults(title, site, resultsdir):
-    exportAllforms(title+"_change", site, resultsdir)
-    exportAllforms(title+"_summary", site, resultsdir)
-    exportAllforms(title+"_ppcell", site, resultsdir)
-    exportAllforms(title+"_empcell", site, resultsdir)
-    exportAllforms(title+"_year", site, resultsdir)
+    publishSimMap(title+"_change", site, resultsdir, 
+        '21 blue is residential change and 23 red is commeritial change')
+    publishSimMap(title+"_summary", site, resultsdir,
+        'year 0 to year last with color blue to red') 
+    publishSimMap(title+"_ppcell", site, resultsdir,
+        'residential population change per cell')
+    publishSimMap(title+"_empcell", site, resultsdir,
+        'commertial population change per cell') 
+    publishSimMap(title+"_year", site, resultsdir,
+        'year that cell cell has been changed')
+
+
+    ##  Todo: change the result maps' names to be without "title"!
+    # zip the results and publish to the website
+    # check_call(['zip', 'model_results.zip', 'ppcell.gtif', 'hhcell.gtif',
+    #         'empcell.gtif', 'year.gtif', 'change.gtif'])
+    # site.putFileURL('model_results.zip', resultsdir, title='Model Results')
 
 
 def main():
@@ -493,37 +465,44 @@ def main():
     title = luc.scenario['title']
     global site, runlog # run.log will be stored in Log repository
     site = LEAMsite(resultsdir, user=user, passwd=password)
-    # runlog = RunLog(resultsdir, site, initmsg='Scenario ' + title)
-    # runlog.p('started at '+jobstart)
+    runlog = RunLog(resultsdir, site, initmsg='Scenario ' + title)
+    runlog.p('started at '+jobstart)
 
-    # global projectiontable
-    # projectiontable = ProjTable()
+    global projectiontable
+    projectiontable = ProjTable()
     
-    # growth = dict(deltapop=[0.0], deltaemp=[0.0])
-    # if luc.growth: # note growthmap[0]...should change luc, using luc_new
-    #     print 'Processing Growth driver set.............'
-    #     startyear, isprobmapcached = processDriverSets(luc.growthmap[0])
-    #     if not isprobmapcached:
-    #         print "Building Probability Maps.............."
-    #         cmd = 'python bin/multicostModel.py %s %s %s > ./Log/probmap.log 2>&1'\
-    #         % (resultsdir, user, password)
-    #         check_call(cmd.split())
+    growth = dict(deltapop=[0.0], deltaemp=[0.0])
+    if luc.growth: # note growthmap[0]...should change luc, using luc_new
+        runlog.p('Processing Growth driver set.............')
+        startyear, isprobmapcached = processDriverSets(luc.growthmap[0])
+        if not isprobmapcached:
+            runlog.p('Building Probability Maps..............')
+            cmd = 'python bin/multicostModel.py %s %s %s > ./Log/probmap.log 2>&1'\
+            % (resultsdir, user, password)
+            check_call(cmd.split())
 
     if luc.growthmap:
-        # print 'Processing Growth Projection set........'
-        # demandstr = processProjectionSet(luc.growth[0])
-        # genYearChangemap.executeGLUCModel(demandstr, title)
+        runlog.p('Processing Growth Projection set........')
+        demandstr = processProjectionSet(luc.growth[0])
+        genYearChangemap.executeGLUCModel(demandstr, title)
+        runlog.p('Publishing all results..............')
         publishResults(title, site, resultsdir)
-         
-
-
-
-
-
-
-
-
-
 
 if __name__ == "__main__":
-    main()    
+    try:
+        main()
+    # Uncaught or re-raised error from main
+    except Exception as e:
+        if 'runlog' in globals():
+            runlog.error(str(e))
+            runlog.exception('main() exits with exception')
+            runlog.error('Scenario Terminated')
+            sys.exit(1)
+
+        # runlog has not be initialized, use default error handling
+        else:
+            raise
+
+    # successful termination
+    runlog.h('Scenario Completed Successfully at %s.' % time.asctime())
+    sys.exit(0)    

@@ -53,68 +53,80 @@ def genSimMap(spatialcode, classColorCondlist, filename):
     with open(outfilename, "w") as f:
       f.writelines(outdata)
 
-def getQuantileList(mapfilename, numbaskets):
-    if (numbaskets < 2):
-        print "Error: number of baskets is less than 2."
-        exit(1)
+def getQuantileList(mapfilename, numbaskets, isuniq, nomax=False, nomin=False):
+    """Get the list of ticks for color assignment.
+       @inputs: mapfilename(str): the ascii map to be read
+                numbaskets(int): the number of colors expected to assgin.
+                                 This number may decrease after quantile.
+                                 This value is useless if isuniq is set.
+                isuniq (bool): if isuniq = True, return uniq values
+                               Otherwise, return quantile ticks.
+                nomax (bool): if nomax = True, max value has no color assignemd.
+                nomin (bool):  if nomin = True, min value has no color assigned.
+        @outputs: arrticks (list of int): the list of ticks to assign color
+                  numbaskets(int): number of ticks used.
+    """
     df = pd.read_csv(mapfilename, sep=r"\s+", skiprows=6, header=None)
     arr = df.values.flatten()
-    arrlen = len(arr)
-    basketsize = arrlen/numbaskets
+    arr =  arr[arr>=0] # mapserver cannot recognize negatives
+    basketsize = len(arr)/numbaskets
     sortedarr = np.sort(arr)
-    sortedarr = sortedarr[sortedarr>=0] # mapserver cannot recognize negatives
-    
+
     # if the number of uniq values is less than 30, then return 
     # the uniq values directly. Thus, maps composed of only 0 and 1
     # can be colored without losing its base values.
     uniqarr = np.unique(sortedarr)
-    if len(uniqarr) <= 30:
-        return uniqarr, len(uniqarr)
+    if isuniq or len(uniqarr) <= 31:
+        if nomin:
+            return uniqarr[uniqarr!=uniqarr[0]]
+        if nomax:
+            return uniqarr[uniqarr!=uniqarr[-1]]
+        return uniqarr, True # set isuniq to be true
 
-    arrticks = sortedarr[0:arrlen-1:basketsize]
+    # if the maximum values has more than a quanter number of basketsize, 
+    # 15 baskets may become [1, max, max, max, max] only
+    # without intermediate values.
+    removemax = False
+    if nomax or len(sortedarr[sortedarr == sortedarr[-1]]) > (numbaskets>>2)*basketsize:
+        sortedarr = sortedarr[sortedarr!= sortedarr[-1]]
+        basketsize = len(sortedarr)/numbaskets
+        removemax = True
+
+    # if the minumum values has more than a quanter number of basketsize,
+    # 15 baskets may become [min, min, min, min, 9] only
+    # without intermediate values.
+    removemin = False
+    if nomin or len(sortedarr[sortedarr == sortedarr[0]]) > (numbaskets>>2)*basketsize:
+        sortedarr = sortedarr[sortedarr!=sortedarr[-1]]
+        basketsize = len(sortedarr)/numbaskets
+        removemin = True
+
+    # if removemin and not nomin: # add minimum value to it
+    # if removemax and not nomax: # add maximum value to it
+    arrticks = sortedarr[0:-1:basketsize]
+    if arrticks[-1] > 1:
+        arrticks = arrticks.astype(int)
+    arrticks = np.unique(arrticks)
     print basketsize
     print arrticks
-    # if the maximum or the base values are too much, remove them.
-    # TODO: this is a brute force solution. Varies maps may have different
-    # cases. Should be improved to cater all map cases.
-    if len(arrticks) > 3            and \
-       arrticks[-1] == arrticks[-2] and \
-       arrticks[-2] == arrticks[-3] and \
-       arrticks[-3] == arrticks[-4]:
-       sortedarr = sortedarr[sortedarr!=arrticks[-1]]
-       arrticks = sortedarr[0:len(sortedarr)-1:len(sortedarr)/numbaskets]
-       print arrticks,  " after remove the maximum"
-    if len(arrticks) > 3          and \
-       arrticks[0] == arrticks[1] and \
-       arrticks[1] == arrticks[2] and \
-       arrticks[2] == arrticks[3]:
-       sortedarr = sortedarr[sortedarr!=arrticks[0]]
-       arrticks = sortedarr[0:len(sortedarr)-1:len(sortedarr)/numbaskets]
-       print arrticks, " after remove the base"
-
-    # # to speed up the maps showing on the browser, we set all ticks to be
-    # # integer. If the maximum value is less than 1 or is smaller than 
-    # # number of colors, we multiply all values with 10 until there are
-    # # large enough integers.
-
-    # multiplier = 1
-    # while(arrticks[-1]*multiplier < numbaskets):
-    #     multiplier *= 10
-    # if multiplier != 1:
-    #     arrticks = [tick * multiplier for tick in arrticks]
-
-    retarr = []
-    retarr.append(int(arrticks[0]))
-    for i in xrange(1, len(arrticks)):   # numbaksets may not equal to len(arrticks)
-        if arrticks[i] != arrticks[i-1]:
-            retarr.append(int(arrticks[i]))
-
-    return retarr, len(retarr)
+    return list(arrticks), False # return isuniq to be False
 
 def getRGBList(numbaskets):
-    rgblist = []
-    #red and green from 50 to 255 to make more distinguishment.
-    
+    """Inteporlate colors for maximum values to minimum values
+       with colors with red to yellow to green to blue.
+       @input: numbaskets(int): number of colors
+       @output: rgblist(list of str): list of 'R G B' codes
+    """
+    if numbaskets == 1:
+        return ['255 0 0']
+    if numbaskets == 2:
+        return ['0 0 255', '255 0 0']
+    if numbaskets == 3:
+        return ['0 0 255', '100 178 100', '255 0 0']
+    if numbaskets == 4:
+        return ['0 0 255', '100 178 100', '247 237 20', '255 0 0']
+
+    # Red and Green from 50 to 255 to make more distinguishment.
     # Red Color Code List
     rnum50 = rnum255 = max(0, numbaskets/3-1)
     rarr = np.linspace(50, 255, numbaskets-rnum50-rnum255, dtype=np.int)
@@ -132,17 +144,36 @@ def getRGBList(numbaskets):
     barr = np.linspace(255, 0, numbaskets-bnum0-bnum255, dtype=np.int)
     blist = [255]*bnum255 + barr.tolist() + [0]*bnum0
 
+    rgblist = []
     for i in xrange(numbaskets):
         rgblist.append(str(rlist[i]) + " " + str(glist[i]) + " " + str(blist[i]))
     return rgblist
 
-def genclassColorCondlist(filename, numbaskets):
+def genclassColorCondlist(filename, numbaskets, isuniq=False):
+    """Generate a list of triples in the format(classname, condition, color)
+       @inputs: filename(str): the ascii map filename without path and postfix,
+                              which is a .txt file locates in ./Data directory.
+                numbaskets(int): expected number of colors to assign. This value
+                              will not be useful is isuniq = True, and may become
+                              less due to the hardness to assign quantile colors.
+                isuniq (bool): if isuniq = False, assign map quantile colors.
+                               Otherwise, assign color with unique values. 
+    """
     if (numbaskets < 2):
         print "Error: number of baskets is less than 2."
         exit(1)
+    quantilelist, isuniq = getQuantileList("./Data/%s.txt" % filename, numbaskets, isuniq)
+    if isuniq:
+        numbaskets = len(quantilelist)
+        classColorCondlist = []
+        rgblist = getRGBList(numbaskets)
+        for tick, rgb in zip(quantilelist, rgblist):
+            condstr = "[pixel] == %s" % str(tick)
+            classColorCondlist.append((tick, condstr, rgb))
+        print classColorCondlist
+        return classColorCondlist
 
-    quantilelist, numbaskets =  getQuantileList("./Data/" + filename + ".txt", numbaskets)
-    numbaskets += 1   # note that the fisrt cond == quantilelist[0]
+    numbaskets = len(quantilelist) + 1   # note that the fisrt cond == quantilelist[0]
     rgblist = getRGBList(numbaskets)
     lastindex = numbaskets-1
 
@@ -167,6 +198,8 @@ def main():
         exit(1)
     classColorCondlist = genclassColorCondlist(filename, numbaskets)
     genSimMap("26916", classColorCondlist, filename)
+
+    # print getRGBList(5)
 
     # genSimMap("26916", [("0",  "[pixel] == 0","0 77 168"),
     #                       ("1",  "([pixel] >     0) && ([pixel]<=   100)"," 46  70 255"),

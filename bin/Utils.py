@@ -1,4 +1,4 @@
-import os
+import os, errno
 def createdirectorynotexist(fname):
     """Create a directory if the directory does not exist.
        @param: fname is the full file path name

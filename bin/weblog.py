@@ -37,26 +37,32 @@ class RunLog:
         self.logger.info('>>> '+s)
         self.log.write('<h2 class="runlog">'+s+'</h2>\n')
         self.site.editDocument(self.log, self.logdoc)
+        print s
 
     def p(self, s):
         self.logger.info(s)
         self.log.write('<p class="runlog">'+s+'</p>\n')
         self.site.editDocument(self.log, self.logdoc)
+        print s
 
     def warn(self, s):
         self.logger.warn(s)
         self.log.write('<h2 class="runlog-warn">Warning</h2>\n')
         self.log.write('<p class="runlog-warn">' + s + '</p>\n')
         self.site.editDocument(self.log, self.logdoc)
+        print s
 
     def error(self, s):
         self.logger.error(s)
         self.log.write('<h2 class="runlog-err">Error Detected</h2>\n')
         self.log.write('<p class="runlog-err">' + s + '</p>\n')
         self.site.editDocument(self.log, self.logdoc)
+        print s
 
     def exception(self, s):
          self.logger.exception(s)
+         print s
 
     def debug(self, s):
         self.logger.debug(s)
+        print s

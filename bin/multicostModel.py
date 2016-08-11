@@ -16,8 +16,6 @@ resultsdir = sys.argv[1]
 user = sys.argv[2]
 passwd = sys.argv[3]
 
-
-
 ######################## Basic GRASS and site setup Functions #################################
 def grassConfig(location, mapset,
     gisbase='/usr/local/grass-6.4.5svn', gisdbase='.'):
@@ -28,7 +26,7 @@ def grassConfig(location, mapset,
     os.environ['GRASS_OVERWRITE'] = '1'
     sys.path.append(os.path.join(gisbase, 'etc', 'python'))
 
-    global grass 
+    global grass
     __import__('grass.script')
     grass = sys.modules['grass.script']
     from grass.script.setup import init
@@ -67,7 +65,7 @@ def export_asciimap(layername, nullval=-1, integer=False):
 
 
 def publishSimMap(maptitle, site, url, description='',
-    numcolors=NUMCOLORS, regioncode=CHICAGOREGIONCODE):
+                  numcolors=NUMCOLORS, regioncode=CHICAGOREGIONCODE):
     """Publish the raster map .tif to the website.
        @ inputs: maptitle (str) the output map name
                  description (str) the description to be shown for each map on the website
@@ -80,30 +78,26 @@ def publishSimMap(maptitle, site, url, description='',
     simmap  = 'Data/%s.tif' % maptitle
     mapfile = 'Outputs/%s.map' % maptitle
 
-    if (numcolors < 2):
-        print "Error: number of baskets is less than 2. publish SimMap abort."
-        return
-
     classColorCondlist = genclassColorCondlist(maptitle, numcolors)
     genSimMap(regioncode, classColorCondlist, maptitle)
 
     popattrurl = site.putSimMap("%s.tif" % maptitle, "%s.map" % maptitle, url,
         simmap_file=open(simmap, 'rb'), 
         mapfile_file=open(mapfile, 'rb'))
-    site.updateSimMap(popattrurl, title=maptitle, description=maptitle)
+    site.updateSimMap(popattrurl, title=maptitle, description=description)
 
 
-def exportAllforms(maplayer, valuetype='Float64'):
+def exportAllforms(maplayer, valuetype='Float64', description=''):
     """ Float64 has the most accurate values. However, Float64
         is slow in processing the map to show in browser. 'UInt16' 
         is the best.
     """
     exportRaster(maplayer, valuetype)
     if valuetype == 'UInt16':
-        export_asciimap(mapfile, integer=True)
+        export_asciimap(maplayer, integer=True)
     else:
-        export_asciimap(mapfile)
-    publishSimMap(mapfile, site, resultsdir)
+        export_asciimap(maplayer)
+    publishSimMap(maplayer, site, resultsdir, description)
 
 ################## Fucntions for centers and travel time maps #################
 ######  Required files in GRASS: otherroadsBase, landcover ########
@@ -359,13 +353,13 @@ def genOtherAttmaps():
     exportAllforms("intersect_cost", 'UInt16')
     print "--generate transport attraction map using statered_cost, county_cost, road_cost, ramp_cost, and intersect_cost..."
     transportAttraction()
-    exportAllforms("transport_att")
+    exportAllforms("transport_att", 'UInt16')
     print "--generate water attraction map..."
     bufferAttraction("water_cost", watercondstr())
-    exportAllforms("water_cost")
+    exportAllforms("water_cost", 'UInt16')
     print "--generate forest attraction map..."
     bufferAttraction("forest_cost", forestcondstr())
-    exportAllforms("forest_cost")
+    exportAllforms("forest_cost", 'UInt16')
     print "--generate slope attraction map..."
     genslopeCost()
     exportAllforms("slope_cost", 'UInt16')
