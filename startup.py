@@ -20,10 +20,20 @@ from weblog import RunLog
 from projectiontable import ProjTable
 from Utils import createdirectorynotexist
 import genYearChangemap # parameters are imported in genYearChangemap
-from multicostModel import publishSimMap
+from multicostModel import * # publishSimMap
 from parameters import NUMCOLORS, CHICAGOREGIONCODE
 
-scenariosurl = 'http://portal.leam.illinois.edu/chicago/luc/scenarios/'
+"""
+TODO:
+1. zip model results
+2. descriptions for uploaded maps (store in parameters.py)
+3. cache probmap function
+4. projTable upload
+5. Intermediate maps folder and map results folder
+6. Delete files in ./Data and ./Inputs to save space if sccessful
+7. merge basic grass functions to grasssetup and mygrass.py(original LEAM code)
+8. Add data analysis to the program and output results to plone.
+"""
 
 ######################## Basic Setups and Helper functions #################################
 def parseFlags():
@@ -116,14 +126,14 @@ def get_rasters(url, downloaddir='./Inputs'):
     try:
         fname = site.saveFile(url, dir=downloaddir)
         zipfname = '%s/%s' % (downloaddir, fname)
-        print "  *%s found, downloading as %s..." % (fname, zipfname)
+        print "***%s found, downloading as %s..." % (fname, zipfname)
         z = ZipFile(zipfname)
     except BadZipfile:
-        print "  *bad zip file"
+        print "***bad zip file"
         return [fname, ]
     # TODO fix error handling ???
     except:
-        print "  *empty zip file"
+        print "***empty zip file"
         return []
 
     rasters = []
@@ -135,11 +145,11 @@ def get_rasters(url, downloaddir='./Inputs'):
             fname = os.path.basename(fname)
             rasters.append(fname)
             outfname = '%s/%s' % (downloaddir, fname)
-            print "     get_raster: ", outfname
+            print "***get_raster: %s" % outfname
             with open(outfname, 'wb') as f:
                 f.write(z.read(fname))
     os.remove(zipfname)
-    print "     remove %s" % zipfname
+    print "***remove %s" % zipfname
     return rasters
 
 
@@ -287,15 +297,15 @@ def get_landcover(url):
     
     landcover = grass.find_file('landcover', element='cell')
     if landcover['name'] == '':
-        print "--download landuse map to landcover raster............."
+        runlog.p("--download landuse map to landcover raster......")
         site.getURL(url, filename='landcover')
         import_rastermap('landcover', layer='landcover')
 
-        print "--generate landcoverRedev raster............."
+        runlog.p("--generate landcoverRedev raster......")
         grass.mapcalc('$redev=if($lu>20 && $lu<25,82, 11)', 
             redev='landcoverRedev', lu='landcover', quiet=True)
     else:
-        print "--local landcover map found, assume landcoverRedev exists............."
+        runlog.p("--local landcover map found, assume landcoverRedev exists......")
 
 
 def get_nogrowthmaps(urllist):
@@ -307,7 +317,7 @@ def get_nogrowthmaps(urllist):
        Thus, each time during import, a tmp folder name is given.
        # To run this, a Temp directory should be created.
     """
-    print "--importing nogrowth layers............."
+    runlog.p("--import nogrowth layers......")
     script = './bin/importNoGrowth'
     logname = './Log/'+ os.path.basename(script)+'.log'
     createdirectorynotexist('./Temp/')
@@ -318,8 +328,6 @@ def get_nogrowthmaps(urllist):
         layername = os.path.basename(layername)
         shplist.append('"%s"' % layername)
 
-    print ' '.join(shplist)
-
     check_call('%s %s > %s 2>&1' % (script, ' '.join(shplist), logname),
         shell=True)
 
@@ -327,13 +335,13 @@ def get_cachedprobmap(url):
     """One scenario only allows one probmap. Once there is a probmap,
        to avoid using cached probmap, users need to create another scenario.
     """
-    print "--checking if any probmaps cached............."
+    runlog.p("--check if any probmaps cached......")
     cachedprobmaps = get_rasters(url)
     for probmap in cachedprobmaps:
-        print '  *Cached probmap found. Skip building probmap.'
+        runlog.p('***Cached probmap found. Skip building probmap.')
         import_rastermap(probmap, layer=probmap.replace('.gtif', ''))
         return True
-    print "  *cached probmap not found, build it."
+    runlog.p("***Cached probmap not found, build it.")
     return False
 
 
@@ -346,20 +354,19 @@ def get_dem(url):
     d['name'] = ''
     if d['name'] == '':
         try:
-            print "--import dem map............."
+            runlog.p("--import dem map......")
             site.getURL(url, filename='dem')
             import_rastermap('dem', layer='demBase')
         except Exception:
-            runlog.warn('dem driver not found, checking for local version')
+            runlog.p('--dem driver not found, checking for local version')
             if os.path.exists('./Inputs/dem.gtif'):
-                runlog.warn('local dem found, loading as demBase')
+                runlog.p('--local dem found, loading as demBase')
                 import_rastermap('dem.gtif', layer='demBase')
             else:
                 runlog.warn('local dem not found, creating blank demBase')
-                print "Error: local dem not found."
                 grass.mapcalc('demBase=float(0.0)')
     else:
-        print "--local dem map found............."
+        runlog.p("--local dem map found......")
 
 ######################## Functions for main  #################################
 def processDriverSets(driver):
@@ -387,37 +394,37 @@ def processDriverSets(driver):
     get_dem(driver['dem']) 
 
     # ywkim added for importing regular roads
-    print "--importing road network.............."
+    runlog.p("--import road network......")
     shp = get_shapefile(driver['tdm'])
     import_vectormap(shp, layer='otherroads')
 
-    print "--importing empcenters.............."
+    runlog.p("--import empcenters......")
     shp = get_shapefile(driver['empcenters']['empcenter'])
     import_vectormap(shp, layer='empcentersBase')
 
-    print "--importing popcenters.............\n"
+    runlog.p("--import popcenters......\n")
     shp = get_shapefile(driver['popcenters']['popcenter'])
     import_vectormap(shp, layer='popcentersBase')
 
     return driver['year'], False # return the startyear, iscachedprobmap
 
 def processProjectionSet(projection):
-    print "--importing boundary map to be raster............."
+    runlog.p("--import boundary map to be raster......")
     boundary = get_shapefile(projection['layer'])
     import_vectormap(boundary, layer='boundary')
     vec2rast('boundary')
 
-    print "--importing pop_density map to be raster............."
+    runlog.p("--import pop_density map to be raster......")
     popdensity = get_shapefile(projection['pop_density'])
     import_vectormap(popdensity, layer='pop_density')
     vec2rast('pop_density')
 
-    print "--importing emp_density map to be raster............."
+    runlog.p("--import emp_density map to be raster......")
     empdensity = get_shapefile(projection['emp_density'])
     import_vectormap(empdensity, layer='emp_density')
     vec2rast('emp_density')
 
-    print "--fetch demand table from website............."
+    runlog.p("--fetch demand table from website......")
     demandstr = site.getURL(projection['graph']).getvalue()
     return demandstr
 
@@ -473,19 +480,20 @@ def main():
     
     growth = dict(deltapop=[0.0], deltaemp=[0.0])
     if luc.growth: # note growthmap[0]...should change luc, using luc_new
-        runlog.p('Processing Growth driver set.............')
+        runlog.h('Processing Growth driver set.............')
         startyear, isprobmapcached = processDriverSets(luc.growthmap[0])
         if not isprobmapcached:
-            runlog.p('Building Probability Maps..............')
-            cmd = 'python bin/multicostModel.py %s %s %s > ./Log/probmap.log 2>&1'\
-            % (resultsdir, user, password)
-            check_call(cmd.split())
+            runlog.h('Building Probability Maps..............')
+            runMulticostModel(resultsdir, site, runlog)
+            # cmd = 'python bin/multicostModel.py %s %s %s > ./Log/probmap.log 2>&1'\
+            # % (resultsdir, user, password)
+            # check_call(cmd.split())
 
     if luc.growthmap:
-        runlog.p('Processing Growth Projection set........')
+        runlog.h('Processing Growth Projection set........')
         demandstr = processProjectionSet(luc.growth[0])
-        genYearChangemap.executeGLUCModel(demandstr, title)
-        runlog.p('Publishing all results..............')
+        genYearChangemap.executeGLUCModel(demandstr, title, runlog)
+        runlog.h('Publishing all results..............')
         publishResults(title, site, resultsdir)
 
 if __name__ == "__main__":

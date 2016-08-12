@@ -135,7 +135,7 @@ def exportraster(layername):
         raise RuntimeError('unable to export raster map ' + layername )
 
 def main():
-    grass_config('grass', 'model')
+    grassConfig()
 
     LANDUSEMAP = 'landuse'
     ROADMAP = 'chicago_road2'

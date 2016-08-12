@@ -7,14 +7,12 @@ from glob import iglob
 from leamsite import LEAMsite
 from parameters import *
 from genSimMap import genSimMap, genclassColorCondlist
+from weblog import RunLog
 
 """Organized from original LEAM attrmap.make and probmap.make.
+   TODO: merge basic GRASS functions to the grasssetup.py.
+   mygrass.py in privious LEAM code is a better reference.
 """
-
-# Used for publish simmap onto the site
-resultsdir = sys.argv[1]
-user = sys.argv[2]
-passwd = sys.argv[3]
 
 ######################## Basic GRASS and site setup Functions #################################
 def grassConfig(location, mapset,
@@ -111,7 +109,8 @@ def genotherroads():
     grass.run_command('r.null', map='otherroads', null=0)
 
 def geninterstatesBaseAndinterstates():
-    """Generate interstatesBase and interstates map for 
+    """Generate interstatesBase and interstates map, the
+       interstates roads extracted from roadnetwork for 
        genoverlandTravelTime30 and genintTravelTime30
        @input map: otherroads
        @output maps: interstatesBase, interstates
@@ -127,7 +126,8 @@ def geninterstatesBaseAndinterstates():
 
 
 def gencross():
-    """Generate map cross for r.multicost function
+    """Generate map cross - the intersection of interstates and ramp
+       - for r.multicost function
        @input maps: interstates, otherroads
        @output map: cross
     """
@@ -162,7 +162,9 @@ def genoverlandTravelTime30():
 
 
 def genintTravelTime30():
-    """Gnereate traveltime map: intTravelTime30
+    """Gnereate traveltime map: intTravelTime30, the travel time 
+       cost per cell for roads only using roadnetwork transport/road type
+       and transport/road speed.
        @input maps: interstatesBase
        @intermediate maps: intTravelSpeed30
        @output mpa: intTravelTime30
@@ -192,7 +194,7 @@ def roadsTravelCost(roadsClassName_list=[('staterd', 2), ('county', 3), ('road',
     for layername, classnum in roadsClassName_list:
         start = time.time()
         outname = str(layername)+"_cost"
-        print "  *caculating " + outname + "..."
+        runlog.p("***caculating %s......" % outname)
         grass.mapcalc('centers=if(otherroads==' + str(classnum) + ',1,null())')
         grass.run_command('r.multicost', input="overlandTravelTime30",
             m2="intTravelTime30", xover="cross", start_rast="centers", 
@@ -218,7 +220,6 @@ def intersectionTravelCost(layername="intersect_cost"):
             int2[ 1,-1]+int2[ 1,0]+int2[ 1,1]) ,1,0))')
     grass.run_command('r.null', map='intersection', setnull=0)
     
-
     grass.run_command('r.multicost', input="overlandTravelTime30",
             m2="intTravelTime30", xover="cross", start_rast="intersection", 
             output=layername)
@@ -312,86 +313,117 @@ def genProbmap(centerscorelist, costscorelist, problayername, multiplier=100000)
 ##################### Main Functions to be called ######################
 def gencentersAttmaps(empcenters, popcenters):
     # pop/emp centers attractive maps require landTravelTime30 and intTravelTime30
-    print "--generate otherroads..."
+    runlog.p("--generate otherroads, the raster form of roadnetwork......")
     genotherroads()
     exportAllforms('otherroads', 'UInt16') # otherroads have road class 1-6
-    print "--generate interstatesBase..."
+    
+    runlog.p("--generate interstatesBase, the interstates roads (class 1) extracted from roadnetwork......")
     geninterstatesBaseAndinterstates()
     exportAllforms('interstates', 'UInt16')
-    print "--generate cross..."
+    
+    runlog.p("--generate cross, the intersection of interstates and ramps......")
     gencross()
     exportAllforms('cross', 'UInt16')     # cross has values either 0 or 1
-    print "--generate overlandTravelTime30..."
+    
+    runlog.p("--generate overlandTravelTime30, the travel time cost per cell, "
+               "using landuse map and landuse type speed table......")
     genoverlandTravelTime30()
     exportAllforms('overlandTravelTime30')# overlandTravelTime30 is (0, 1) 
-    print "--generate landTravelTime30..." 
+    
+    runlog.p("--generate intTravelTime30, the travel time cost per cell, "
+               "using the 'CLASS' and 'SPEED' values in roadnetwork map......") 
     genintTravelTime30()                  # intTravelTime30 has one uniq value
     exportAllforms('intTravelTime30', 'UInt16')
 
-    print "--generate population centers attractive map..."
+    runlog.p("--generate population centers attractive map using cross, "
+               "overlandTravelTime30, intTravelTime30, and population centers......")
     os.system("python bin/cities.py -p total_pop -n pop -m grav popcentersBase > Log/popatt.log")
     exportAllforms("pop_att", 'UInt16')
 
-    print "--generate population centers travelcost map..."
+    runlog.p("--generate population centers travelcost map......")
     os.system("python bin/cities.py -p total_pop -n pop -m cost popcentersBase > Log/popcost.log")
     exportAllforms("pop_cost", 'UInt16')
 
-    print "--generate employment centers attractive map..."
+    runlog.p("--generate employment centers attractive map using cross, "
+               "overlandTravelTime30, intTravelTime30, and employment centers......")
     os.system("python bin/cities.py -p total_emp -n emp -m grav empcentersBase > Log/empatt.log")
     exportAllforms("emp_att", 'UInt16')
 
-    print "--generate employment centers travelcost map..."
+    runlog.p("--generate employment centers travelcost map......")
     os.system("python bin/cities.py -p total_emp -n emp -m cost empcentersBase > Log/empcost.log")
     exportAllforms("emp_cost", 'UInt16')
 
 def genOtherAttmaps():
     # print "--generate staterd, county, road, and ramp attractiveness..."
+    runlog.p("--generate travel cost map for each road class type except for interstates......")
     roadsClassName_list = [('staterd', 2), ('county', 3), ('road', 4), ('ramp', 6)]    
     roadsTravelCost(roadsClassName_list)
-    print "--generate intersection travel cost map..."
+    
+    runlog.p("--generate intersection travel cost map......")
     intersectionTravelCost()
     exportAllforms("intersect_cost", 'UInt16')
-    print "--generate transport attraction map using statered_cost, county_cost, road_cost, ramp_cost, and intersect_cost..."
+
+    runlog.p("--generate transport attraction map using statered_cost, "
+               "county_cost, road_cost, ramp_cost, and intersect_cost......")
     transportAttraction()
     exportAllforms("transport_att", 'UInt16')
-    print "--generate water attraction map..."
+    
+    runlog.p("--generate water travelcost map......")
     bufferAttraction("water_cost", watercondstr())
     exportAllforms("water_cost", 'UInt16')
-    print "--generate forest attraction map..."
+
+    runlog.p("--generate forest travelcost map......")
     bufferAttraction("forest_cost", forestcondstr())
     exportAllforms("forest_cost", 'UInt16')
-    print "--generate slope attraction map..."
+
+    runlog.p("--generate slope travelcost map......")
     genslopeCost()
     exportAllforms("slope_cost", 'UInt16')
 
 
 def genProbmaps():
-    print "--generate probmap_com..."
+    runlog.p("--generate probmap_com, the probabiltiy map for commertial developement, "
+               "and output probmap_com_percentage, where all values are 0.01 of probmap_com......")
     genProbmap(COMSCORELIST, COSTSCORELIST, 'probmap_com', 10000000)# probcom has -07 values
     exportAllforms('probmap_com_percentage') 
 
-    print "--generate probmap_res..."
+    runlog.p("--generate probmap_res...the probabiltiy map for residential developement, "
+             "and output probmap_res_percentage, where all values are 0.01 of probmap_res......")
     genProbmap(RESSCORELIST, COSTSCORELIST, 'probmap_res', 100000)
     exportAllforms('probmap_res_percentage')
+
+def runMulticostModel(resultsurl, website, log):
+    global resultsdir
+    global site
+    global runlog
+    resultsdir = resultsurl
+    site = website
+    runlog = log
+    grassConfig('grass', 'model')
+
+    gencentersAttmaps(EMPCENTERS, POPCENTERS)
+    genOtherAttmaps()
+    genProbmaps()
+
 
 
 def main():
     sys.stdout = open('./Log/multicostModel.stdout.log', 'w')
     sys.stderr = open('./Log/multicostModel.stderr.log', 'w')
 
-    global site
-    site = LEAMsite(resultsdir, user, passwd)
-
-    grassConfig('grass', 'model')
-    
     # exportRaster('emp_centers4_47_98')
     # importVector('Data/FID4_47_98', EMPCENTERS) 
     # print "list available raster maps in database..."
     # grass.run_command('g.mlist', type='rast')   
+    resultsdir = sys.argv[1]
+    user = sys.argv[2]
+    passwd = sys.argv[3]
+    site = LEAMsite(resultsdir, user, passwd)
+    global runlog
+    runlog = RunLog(resultsdir, site, initmsg='Scenario ' + scenariotitle)
+    runMulticostModel(user, passwd, runlog)
 
-    gencentersAttmaps(EMPCENTERS, POPCENTERS)
-    genOtherAttmaps()
-    genProbmaps()
+
 
     
 

@@ -24,11 +24,12 @@ import subprocess
 from subprocess import check_call
 import grasssetup
 from parameters import DEMANDGRAPH
+from weblog import RunLog
 
 
 ###### Generate Yearly Demand Graph ######
 def genYearlyDemandGraph(demandstr, projid):
-    print "--parse the demand table to year and population and interpolate......"
+    runlog.p("***parse the demand table to year and population and interpolate......")
     yr1, yr2, pop1, pop2 = getDemandYearPop(demandstr, 'Population')
     yearincrpoplist = interpolate(yr1, yr2, pop1, pop2)
 
@@ -146,7 +147,7 @@ def genBilGLUCInputs():
         output='gluc/Data/emp_density.bil', format='EHdr', type='Float32') 
 
 ###### Execute GLUC ######
-def executeGLUCModel(demandstr, projid, mode='growth'):
+def executeGLUCModel(demandstr, projid, log, mode='growth'):
     """***GLUC model requires inputs***
        1. demand.graph                      --- genYearlyDemandGraph
        2. ${projid}.conf configuration file --- writeConf
@@ -160,40 +161,51 @@ def executeGLUCModel(demandstr, projid, mode='growth'):
        ***GLUC model outputs***
        change.bil and summary.bil in gluc/DriverOutput/Maps
     """
+    global runlog
+    runlog = log
     # generate GLUC model inputs
-    print "--generate yearly demand graph according to demand year and population........"
+    runlog.p("--generate yearly demand graph according to demand year and population........")
     startyear, endyear = genYearlyDemandGraph(demandstr, projid)
-    print "--generate GLUC model configuration file........"
+    runlog.p("--generate GLUC model configuration file........")
     writeConfig(confname=projid, prefix=mode+'_', start=startyear, end=endyear)
-    print "--generate GLUC input .bil maps........"
+    runlog.p("--generate GLUC input .bil maps........")
     genBilGLUCInputs()
-    print "--generate empty GLUC result change and summary maps"
+    runlog.p("--generate empty GLUC result change and summary maps")
     cmd = 'make -f bin/gluc.make start'
     check_call(cmd.split())
     
-    print "\nRun GLUC model....................."
+    runlog.h("\nRun GLUC model.....................")
     try:
         with open('./Log/%s_gluclog.log' % projid, 'w') as log:
             cmd='make -f bin/gluc.make %s PROJID=%s START=%s'% (mode, projid, startyear)
             check_call(cmd.split(), stdout=log, stderr=log)
     except subprocess.CalledProcessError:
-        print 'GLUC Model Failure'
+        runlog.warn('GLUC Model Failure')
         sys.exit(5)
 
 
 def main():
-    scenariotitle = 'test2_projection'
-    resultsdir = 'http://portal.leam.illinois.edu/chicago/luc/scenarios/test4_scenario'
+    # Sample variable values
+    # scenariotitle = 'test2_projection'
+    # resultsdir = 'http://portal.leam.illinois.edu/chicago/luc/scenarios/test4_scenario'
+    # demandgraphurl="http://portal.leam.illinois.edu/chicago/luc/projections/test2_projection/getGraph"
+
+    resultsdir = sys.argv[1]
+    scenariotitle = os.path.basename(resultsdir)
 
     global site
-    site = LEAMsite(resultsdir, user=sys.argv[1], passwd=sys.argv[2])
-    demandgraphurl="http://portal.leam.illinois.edu/chicago/luc/projections/test2_projection/getGraph"
+    global runlog
+    site = LEAMsite(resultsdir, user=sys.argv[2], passwd=sys.argv[3])
+    runlog = RunLog(resultsdir, site, initmsg='Scenario ' + scenariotitle)
+
+    demandgraphurl = sys.argv[4]
     demandstr = site.getURL(demandgraphurl).getvalue()
 
-    executeGLUCModel(demandstr, scenariotitle)
+    executeGLUCModel(demandstr, scenariotitle, runlog)
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print "Require Arg1: username, Arg2: password to connect to plone site."
+        print "Require Arg1: resultsdir, Arg2: username, ",\
+              "Arg3: password to connect to plone site, Arg4: demandgraphurl for expected population change."
         exit(1)
     main()
