@@ -30,9 +30,13 @@ TODO:
 3. cache probmap function
 4. projTable upload
 5. Intermediate maps folder and map results folder
-6. Delete files in ./Data and ./Inputs to save space if sccessful
+6. Delete files in ./Data, ./Inputs, and some files in ./grass to save space if sccessful
 7. merge basic grass functions to grasssetup and mygrass.py(original LEAM code)
 8. Add data analysis to the program and output results to plone.
+9. sanity check
+10. delete ./Inputs/projection_demand.txt from svn folder (make sure it's ok)
+11. allow no popdensity and empdensity to be uploaded and use a defualt caculation
+    for uniform densities to be read by GLUC.
 """
 
 ######################## Basic Setups and Helper functions #################################
@@ -501,6 +505,8 @@ if __name__ == "__main__":
         main()
     # Uncaught or re-raised error from main
     except Exception as e:
+        # remove .tif files and save .txt files for debuging the problem.
+        os.system.('rm ./Data/*.tif ./gluc/Data/* ./bin/glucsrc/*.h ./bin/glucsrc/*.c')
         if 'runlog' in globals():
             runlog.error(str(e))
             runlog.exception('main() exits with exception')
@@ -513,4 +519,6 @@ if __name__ == "__main__":
 
     # successful termination
     runlog.h('Scenario Completed Successfully at %s.' % time.asctime())
+    os.system('rm *') # remove all files to save space. Otherwise, one scenario
+                      # will take 20% /dev/dm-0 space. Use 'df' to check space use.
     sys.exit(0)    
