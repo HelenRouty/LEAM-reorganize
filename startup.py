@@ -508,7 +508,7 @@ if __name__ == "__main__":
     # Uncaught or re-raised error from main
     except Exception as e:
         # remove .tif files and save .txt files for debuging the problem.
-        os.system.('rm ./Data/*.tif ./gluc/Data/* ./bin/glucsrc/*.h ./bin/glucsrc/*.c')
+        os.system('rm ./Data/*.tif ./gluc/Data/* ./bin/glucsrc/*.h ./bin/glucsrc/*.c')
         if 'runlog' in globals():
             runlog.error(str(e))
             runlog.exception('main() exits with exception')

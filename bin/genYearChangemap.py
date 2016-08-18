@@ -132,7 +132,7 @@ def writeConfig(confname='baseline.conf',
         if grass.find_file('pop_density', element='cell'):
             f.write('* DENSITY_MAP_RES         d(M, pop_density.bil)\n')
 
-        if grass.find_file('emp_density', element='cell')
+        if grass.find_file('emp_density', element='cell'):
             f.write('* DENSITY_MAP_COM         d(M, emp_density.bil)\n')
 
 ###### Generate GLUC Bil File Inputs #######
