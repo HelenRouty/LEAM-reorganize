@@ -127,8 +127,13 @@ def writeConfig(confname='baseline.conf',
         if probmaps:
             f.write('* INITIAL_PROB_RES_MAP    M(M, 4, initial_probmap_res)\n')
             f.write('* INITIAL_PROB_COM_MAP    M(M, 4, initial_probmap_com)\n')
-            f.write('* FINAL_PROB_RES_MAP    M(M, 4, final_probmap_res)\n')
-            f.write('* FINAL_PROB_COM_MAP    M(M, 4, final_probmap_com)\n')
+            f.write('* FINAL_PROB_RES_MAP      M(M, 4, final_probmap_res)\n')
+            f.write('* FINAL_PROB_COM_MAP      M(M, 4, final_probmap_com)\n')
+        if grass.find_file('pop_density', element='cell'):
+            f.write('* DENSITY_MAP_RES         d(M, pop_density.bil)\n')
+
+        if grass.find_file('emp_density', element='cell')
+            f.write('* DENSITY_MAP_COM         d(M, emp_density.bil)\n')
 
 ###### Generate GLUC Bil File Inputs #######
 def genBilGLUCInputs():
@@ -141,10 +146,20 @@ def genBilGLUCInputs():
         output='gluc/Data/landcover.bil', format='EHdr', type='Byte')
     grass.run_command('r.out.gdal', input='nogrowth', 
         output='gluc/Data/nogrowth.bil', format='EHdr', type='Byte')
-    grass.run_command('r.out.gdal', input='pop_density', 
-        output='gluc/Data/pop_density.bil', format='EHdr',type='Float32')
-    grass.run_command('r.out.gdal', input='emp_density', 
-        output='gluc/Data/emp_density.bil', format='EHdr', type='Float32') 
+
+    if grass.find_file('pop_density', element='cell'):
+        grass.run_command('r.out.gdal', input='pop_density', 
+            output='gluc/Data/pop_density.bil', format='EHdr',type='Float32') # needs to be Float32
+        runlog.p('***use uploaded pop_density in GLUC')
+    else:
+        runlog.p('***use GLUC default pop_density')
+
+    if grass.find_file('emp_density', element='cell'):
+        grass.run_command('r.out.gdal', input='emp_density', 
+            output='gluc/Data/emp_density.bil', format='EHdr', type='Float32') # needs to be Float32
+        runlog.p('***use uploaded emp_density in GLUC')
+    else:
+        runlog.p('***use GLUC default emp_density')
 
 ###### Execute GLUC ######
 def executeGLUCModel(demandstr, projid, log, mode='growth'):

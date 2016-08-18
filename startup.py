@@ -25,17 +25,16 @@ from parameters import NUMCOLORS, CHICAGOREGIONCODE
 
 """
 TODO:
-1. zip model results
+***zip model results, intermediate maps folder and map results folder
 2. descriptions for uploaded maps (store in parameters.py)
-3. cache probmap function
-4. projTable upload
-5. Intermediate maps folder and map results folder
-6. Delete files in ./Data, ./Inputs, and some files in ./grass to save space if sccessful
+***cache probmap function
+***projTable upload (GLUC)
+***Delete files in ./Data, ./Inputs, and some files in ./grass to save space if sccessful
 7. merge basic grass functions to grasssetup and mygrass.py(original LEAM code)
 8. Add data analysis to the program and output results to plone.
 9. sanity check
 10. delete ./Inputs/projection_demand.txt from svn folder (make sure it's ok)
-11. allow no popdensity and empdensity to be uploaded and use a defualt caculation
+***allow no popdensity and empdensity to be uploaded and use a defualt caculation
     for uniform densities to be read by GLUC.
 """
 
@@ -419,14 +418,21 @@ def processProjectionSet(projection):
     vec2rast('boundary')
 
     runlog.p("--import pop_density map to be raster......")
-    popdensity = get_shapefile(projection['pop_density'])
-    import_vectormap(popdensity, layer='pop_density')
-    vec2rast('pop_density')
+    if 'pop_density' in projection:
+        popdensity = get_shapefile(projection['pop_density'])
+        import_vectormap(popdensity, layer='pop_density')
+        vec2rast('pop_density')
+    else:
+        runlog.p("***pop_density not found. Use default pop_density.")
 
+    
     runlog.p("--import emp_density map to be raster......")
-    empdensity = get_shapefile(projection['emp_density'])
-    import_vectormap(empdensity, layer='emp_density')
-    vec2rast('emp_density')
+    if 'emp_density' in projection:
+        empdensity = get_shapefile(projection['emp_density'])
+        import_vectormap(empdensity, layer='emp_density')
+        vec2rast('emp_density')
+    else:
+        runlog.p("***emp_density not found. Use default emp_density.")
 
     runlog.p("--fetch demand table from website......")
     demandstr = site.getURL(projection['graph']).getvalue()
@@ -443,7 +449,6 @@ def publishResults(title, site, resultsdir):
         'commertial population change per cell') 
     publishSimMap(title+"_year", site, resultsdir,
         'year that cell cell has been changed')
-
 
     ##  Todo: change the result maps' names to be without "title"!
     # zip the results and publish to the website
@@ -489,9 +494,6 @@ def main():
         if not isprobmapcached:
             runlog.h('Building Probability Maps..............')
             runMulticostModel(resultsdir, site, runlog)
-            # cmd = 'python bin/multicostModel.py %s %s %s > ./Log/probmap.log 2>&1'\
-            # % (resultsdir, user, password)
-            # check_call(cmd.split())
 
     if luc.growthmap:
         runlog.h('Processing Growth Projection set........')

@@ -15,7 +15,7 @@ from weblog import RunLog
 """
 
 ######################## Basic GRASS and site setup Functions #################################
-def grassConfig(location, mapset,
+def grassConfig(location='grass', mapset='model',
     gisbase='/usr/local/grass-6.4.5svn', gisdbase='.'):
     """ Set grass environment to run grass.script as grass
     """
@@ -292,7 +292,7 @@ def genProbmap(centerscorelist, costscorelist, problayername, multiplier=100000)
                 E.g. centerscorelist can be:
                 [('pop', 'pop_com'), ('emp', 'emp_com'),
                  ('transport', 'transport_com')] for 'probmap_com' map.
-                attlist can be [('forest', 'forest'), ('water', 'water'), ('slope', 'slope')]
+                costlist can be [('forest', 'forest'), ('water', 'water'), ('slope', 'slope')]
                 multiplier is hard coded to multiply a integer to the final probmap.
                 TODO: multiplier should be an automate process.
         @output: probmap_com or probmap_res (commercial/residential)
@@ -422,14 +422,7 @@ def main():
     global runlog
     runlog = RunLog(resultsdir, site, initmsg='Scenario ' + scenariotitle)
     runMulticostModel(user, passwd, runlog)
-
-
-
     
-
-
-
-
      
 if __name__ == "__main__":
     main()

@@ -80,8 +80,9 @@ def make_city_tt(cities, cat, overland='overlandTravelTime30',
         xover=xover, start_rast=classlayer, output=travelcost, max_cost=maxcost)
     grass.run_command('g.remove', rast=classlayer)
     #grass.run_command('r.out.gdal', input=travelcost, 
-    #    output='./Data/'+travelcost+".tif", type='Float64')
+    #   output='./Data/'+travelcost+".tif", type='Float64')
     return travelcost
+
 
 def parse_args():
     parse = OptionParser(usage=usage, description=description)

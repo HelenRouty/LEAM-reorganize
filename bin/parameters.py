@@ -1,7 +1,7 @@
 
 ################### genSimMap.py && multicostModel.py ###############
 NUMCOLORS = 15
-CHICAGOREGIONCODE = "26916"
+CHICAGOREGIONCODE = "26916" #epsg
 SIMMAPHEADER = "./Inputs/simMapheader.txt"
 
 ######################### multicostModel.py #########################
