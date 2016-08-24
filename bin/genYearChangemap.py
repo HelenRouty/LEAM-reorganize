@@ -113,6 +113,7 @@ def writeConfig(confname='baseline.conf',
     #              (confname, prefix, start, end))
 
     # cleanup confname and add path
+    grasssetup.grassConfig()
     if not confname.endswith('.conf'):
         confname += '.conf'
     config = os.path.join(path, os.path.basename(confname))
