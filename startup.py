@@ -390,7 +390,6 @@ def processDriverSets(driver):
     get_nogrowthmaps(driver.get('nogrowth', [])) # default=[]
 
     isprobmapcached = get_cachedprobmap(driver['download'])
-    isprobmapcached = False # Just for test
     if isprobmapcached:
         return driver['year'], True
 
@@ -411,6 +410,16 @@ def processDriverSets(driver):
 
     return driver['year'], False # return the startyear, iscachedprobmap
 
+
+def cacheProbmaps(driverurl):
+    runlog.p("--cache probamps......")
+    try:
+        os.system("zip Data/probmaps.zip Data/probmap_res.gtif Data/probmap_com.gtif")
+        site.putProbmapCache(driverurl)
+    except Exception:
+        runlog.warn("Failed caching probmaps")
+
+
 def processProjectionSet(projection):
     runlog.p("--import boundary map to be raster......")
     boundary = get_shapefile(projection['layer'])
@@ -418,7 +427,7 @@ def processProjectionSet(projection):
     vec2rast('boundary')
 
     runlog.p("--import pop_density map to be raster......")
-    if 'pop_density' in projection:
+    if projection['pop_density'] != None:
         popdensity = get_shapefile(projection['pop_density'])
         import_vectormap(popdensity, layer='pop_density')
         vec2rast('pop_density')
@@ -427,7 +436,7 @@ def processProjectionSet(projection):
 
     
     runlog.p("--import emp_density map to be raster......")
-    if 'emp_density' in projection:
+    if projection['emp_density'] != None:
         empdensity = get_shapefile(projection['emp_density'])
         import_vectormap(empdensity, layer='emp_density')
         vec2rast('emp_density')
@@ -483,6 +492,8 @@ def main():
     site = LEAMsite(resultsdir, user=user, passwd=password)
     runlog = RunLog(resultsdir, site, initmsg='Scenario ' + title)
     runlog.p('started at '+jobstart)
+    site.createFolder("details", resultsdir)
+    site.createFolder("results", resultsdir)
 
     global projectiontable
     projectiontable = ProjTable()
@@ -494,6 +505,7 @@ def main():
         if not isprobmapcached:
             runlog.h('Building Probability Maps..............')
             runMulticostModel(resultsdir, site, runlog)
+            cacheProbmaps(luc.growthmap[0]['url'])            
 
     if luc.growthmap:
         runlog.h('Processing Growth Projection set........')
@@ -521,6 +533,6 @@ if __name__ == "__main__":
 
     # successful termination
     runlog.h('Scenario Completed Successfully at %s.' % time.asctime())
-    os.system('rm *') # remove all files to save space. Otherwise, one scenario
+    os.system('rm -r *') # remove all files to save space. Otherwise, one scenario
                       # will take 20% /dev/dm-0 space. Use 'df' to check space use.
     sys.exit(0)    
