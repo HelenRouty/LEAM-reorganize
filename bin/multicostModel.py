@@ -385,11 +385,13 @@ def genProbmaps():
     runlog.p("--generate probmap_com, the probabiltiy map for commertial developement, "
                "and output probmap_com_percentage, where all values are 0.01 of probmap_com......")
     genProbmap(COMSCORELIST, COSTSCORELIST, 'probmap_com', 10000000)# probcom has -07 values
+    exportRaster('probmap_com', 'Float32')
     exportAllforms('probmap_com_percentage') 
 
     runlog.p("--generate probmap_res...the probabiltiy map for residential developement, "
              "and output probmap_res_percentage, where all values are 0.01 of probmap_res......")
     genProbmap(RESSCORELIST, COSTSCORELIST, 'probmap_res', 100000)
+    exportRaster('probmap_res', 'Float32')
     exportAllforms('probmap_res_percentage')
 
 def runMulticostModel(resultsurl, website, log):

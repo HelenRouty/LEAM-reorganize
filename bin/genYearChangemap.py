@@ -148,7 +148,11 @@ def genBilGLUCInputs():
         output='gluc/Data/landcover.bil', format='EHdr', type='Byte')
     grass.run_command('r.out.gdal', input='nogrowth', 
         output='gluc/Data/nogrowth.bil', format='EHdr', type='Byte')
-
+    grass.run_command('r.out.gdal', input='probmap_res',
+        output='gluc/Data/growth_probmap_res.bil', format='EHdr', type='Float32')
+    grass.run_command('r.out.gdal', input='probmap_com',
+        output='gluc/Data/growth_probmap_com.bil', format='EHdr', type='Float32')
+    
     if grass.find_file('pop_density', element='cell'):
         grass.run_command('r.out.gdal', input='pop_density', 
             output='gluc/Data/pop_density.bil', format='EHdr',type='Float32') # needs to be Float32
@@ -168,7 +172,7 @@ def executeGLUCModel(demandstr, projid, log, mode='growth'):
     """***GLUC model requires inputs***
        1. demand.graph                      --- genYearlyDemandGraph
        2. ${projid}.conf configuration file --- writeConf
-       3. boundary, landcover, nogrowth, pop_density, emp_density
+       3. boundary, landcover, nogrowth, pop_density, emp_density, probmap_com, probmap_res
           .bil && .hdr files                --- genBilGLUCInputs
        4. empty change and summary .bil && .hdr files 
                                             --- gluc.make start
