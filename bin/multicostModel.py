@@ -38,11 +38,22 @@ def importVector(fullpathfilename, layername):
         raise RuntimeError('unable to import vectormap ' + layername) 
 
 
-def exportRaster(layername, valuetype='Float64'): #'UInt16'
+def exportRaster(layername, valuetype='Float64', enlarge=False): #'UInt16'
+    if enlarge:
+        maxval = grass.raster_info(layername)['max']
+        multiplier = 1
+        while(maxval*multiplier < 10):
+            multiplier *= 10
+        if multiplier != 1: #if need to multiply
+            grass.mapcalc("%s%s=if(%s, %s*%i)"%(layername, str(multiplier), layername, layername, multiplier))
+            layername = layername+str(multiplier)
+    
     outfilename = 'Data/'+layername+'.tif'
     if grass.run_command('r.out.gdal', input=layername, 
       output=outfilename, type=valuetype, quiet=True):
         raise RuntimeError('unable to export raster map ' + layername )
+
+    return layername # in case enlarge == True, layername may be modified
 
 
 def export_asciimap(layername, nullval=-1, integer=False):
@@ -85,12 +96,12 @@ def publishSimMap(maptitle, site, url, description='',
     site.updateSimMap(popattrurl, title=maptitle, description=description)
 
 
-def exportAllforms(maplayer, valuetype='Float64', description=''):
+def exportAllforms(maplayer, valuetype='Float64', description='', enlarge=True):
     """ Float64 has the most accurate values. However, Float64
         is slow in processing the map to show in browser. 'UInt16' 
         is the best.
     """
-    exportRaster(maplayer, valuetype)
+    maplayer = exportRaster(maplayer, valuetype, enlarge)
     if valuetype == 'UInt16':
         export_asciimap(maplayer, integer=True)
     else:
@@ -394,6 +405,7 @@ def genProbmaps():
     exportRaster('probmap_res', 'Float32')
     exportAllforms('probmap_res_percentage')
 
+
 def runMulticostModel(resultsurl, website, log):
     global resultsdir
     global site
@@ -408,7 +420,6 @@ def runMulticostModel(resultsurl, website, log):
     genProbmaps()
 
 
-
 def main():
     sys.stdout = open('./Log/multicostModel.stdout.log', 'w')
     sys.stderr = open('./Log/multicostModel.stderr.log', 'w')
@@ -417,6 +428,7 @@ def main():
     # importVector('Data/FID4_47_98', EMPCENTERS) 
     # print "list available raster maps in database..."
     # grass.run_command('g.mlist', type='rast')   
+    scenariotitle = ""
     resultsdir = sys.argv[1]
     user = sys.argv[2]
     passwd = sys.argv[3]
@@ -424,6 +436,8 @@ def main():
     global runlog
     runlog = RunLog(resultsdir, site, initmsg='Scenario ' + scenariotitle)
     runMulticostModel(user, passwd, runlog)
+
+
     
      
 if __name__ == "__main__":

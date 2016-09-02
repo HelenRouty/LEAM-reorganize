@@ -414,7 +414,7 @@ def processDriverSets(driver):
 def cacheProbmaps(driverurl):
     runlog.p("--cache probamps......")
     try:
-        os.system("zip Data/probmaps.zip Data/probmap_res.gtif Data/probmap_com.gtif")
+        os.system("zip Data/probmaps.zip Data/probmap_res.tif Data/probmap_com.tif")
         site.putProbmapCache(driverurl)
     except Exception:
         runlog.warn("Failed caching probmaps")
