@@ -448,15 +448,17 @@ def processProjectionSet(projection):
     return demandstr
 
 def publishResults(title, site, resultsdir):
-    publishSimMap(title+"_change", site, resultsdir, 
+ 
+
+    publishSimMap(title+"_change", site, resultsdir+"/results", 
         '21 blue is residential change and 23 red is commeritial change')
-    publishSimMap(title+"_summary", site, resultsdir,
+    publishSimMap(title+"_summary", site, resultsdir+"/results",
         'year 0 to year last with color blue to red') 
-    publishSimMap(title+"_ppcell", site, resultsdir,
+    publishSimMap(title+"_ppcell", site, resultsdir+"/results",
         'residential population change per cell')
-    publishSimMap(title+"_empcell", site, resultsdir,
+    publishSimMap(title+"_empcell", site, resultsdir+"/results",
         'commertial population change per cell') 
-    publishSimMap(title+"_year", site, resultsdir,
+    publishSimMap(title+"_year", site, resultsdir+"/results",
         'year that cell cell has been changed')
 
     ##  Todo: change the result maps' names to be without "title"!
@@ -465,8 +467,8 @@ def publishResults(title, site, resultsdir):
     #         'empcell.gtif', 'year.gtif', 'change.gtif'])
     # site.putFileURL('model_results.zip', resultsdir, title='Model Results')
 
-
-def main():
+def main():    
+         
     # The system stdout and stderr will be in /leam/scratch/<scenarioname>/<scenarioname>.log
     jobstart = time.asctime()
     os.environ['PATH'] = ':'.join(['./bin', os.environ.get('BIN', '.'),'/bin', '/usr/bin'])
@@ -487,13 +489,24 @@ def main():
     print "Connect to the LEAM storage server............."
     resultsdir = luc.scenario['results']
     print resultsdir, '\n'
+
     title = luc.scenario['title']
     global site, runlog # run.log will be stored in Log repository
     site = LEAMsite(resultsdir, user=user, passwd=password)
-    runlog = RunLog(resultsdir, site, initmsg='Scenario ' + title)
+ 
+    #create runlog file 
+    site.createFolder("RunLog", resultsdir)    
+
+
+
+    runlog = RunLog(resultsdir+"/runlog", site, initmsg='Scenario ' + title)
     runlog.p('started at '+jobstart)
-    site.createFolder("details", resultsdir)
-    site.createFolder("results", resultsdir)
+    
+    # creat two folders
+    #site.createFolder("RunLog", resultsdir)
+    site.createFolder("Details", resultsdir)
+    site.createFolder("Results", resultsdir)
+
 
     global projectiontable
     projectiontable = ProjTable()
@@ -512,7 +525,8 @@ def main():
         demandstr = processProjectionSet(luc.growth[0])
         genYearChangemap.executeGLUCModel(demandstr, title, runlog)
         runlog.h('Publishing all results..............')
-        publishResults(title, site, resultsdir)
+        #wrap the simmap file to Results
+        publishResults(title, site, resultsdir+"/results")
 
 if __name__ == "__main__":
     try:
