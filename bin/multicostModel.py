@@ -22,7 +22,7 @@ def grassConfig(location='grass', mapset='model',
     os.environ['GISBASE'] = gisbase
     os.environ['GRASS_VERBOSE'] = '0'
     os.environ['GRASS_OVERWRITE'] = '1'
-    sys.path.append(os.path.join(gisbase, 'etc', 'python'))
+    sys.pqath.append(os.path.join(gisbase, 'etc', 'python'))
 
     global grass
     __import__('grass.script')
@@ -53,7 +53,7 @@ def exportRaster(layername, valuetype='Float64', enlarge=False): #'UInt16'
       output=outfilename, type=valuetype, quiet=True):
         raise RuntimeError('unable to export raster map ' + layername )
 
-    return layername # in case enlarge == True, layername may be modified
+    return layername # in caseo enlarge == True, layername may be modified
 
 
 def export_asciimap(layername, nullval=-1, integer=False):
@@ -89,7 +89,8 @@ def publishSimMap(maptitle, site, url, description='',
 
     classColorCondlist = genclassColorCondlist(maptitle, numcolors)
     genSimMap(regioncode, classColorCondlist, maptitle)
-
+    
+    
     popattrurl = site.putSimMap("%s.tif" % maptitle, "%s.map" % maptitle, url,
         simmap_file=open(simmap, 'rb'), 
         mapfile_file=open(mapfile, 'rb'))
@@ -106,7 +107,9 @@ def exportAllforms(maplayer, valuetype='Float64', description='', enlarge=True):
         export_asciimap(maplayer, integer=True)
     else:
         export_asciimap(maplayer)
-    publishSimMap(maplayer, site, resultsdir, description)
+        
+    #wrap file into details folder
+    publishSimMap(maplayer, site, resultsdir+"/details", description)
 
 ################## Fucntions for centers and travel time maps #################
 ######  Required files in GRASS: otherroadsBase, landcover ########
