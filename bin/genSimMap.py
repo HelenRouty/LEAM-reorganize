@@ -53,7 +53,7 @@ def genSimMap(spatialcode, classColorCondlist, filename):
     with open(outfilename, "w") as f:
       f.writelines(outdata)
 
-def getQuantileList(mapfilename, numbaskets, isuniq, nomax=False, nomin=False):
+def getQuantileList(mapfilename, numbaskets, nomin=False, nomax=False, isuniq=False):
     """Get the list of ticks for color assignment.
        @inputs: mapfilename(str): the ascii map to be read
                 numbaskets(int): the number of colors expected to assgin.
@@ -78,9 +78,11 @@ def getQuantileList(mapfilename, numbaskets, isuniq, nomax=False, nomin=False):
     uniqarr = np.unique(sortedarr)
     if isuniq or len(uniqarr) <= 31:
         if nomin:
-            return uniqarr[uniqarr!=uniqarr[0]]
+            #print "minValue", uniqarr[0]
+            #print "otherValue", uniqarr[1:]
+            return uniqarr[uniqarr!=uniqarr[0]], True
         if nomax:
-            return uniqarr[uniqarr!=uniqarr[-1]]
+            return uniqarr[uniqarr!=uniqarr[-1]], True
         return uniqarr, True # set isuniq to be true
 
     # if the maximum values has more than a quanter number of basketsize, 
@@ -149,7 +151,7 @@ def getRGBList(numbaskets):
         rgblist.append(str(rlist[i]) + " " + str(glist[i]) + " " + str(blist[i]))
     return rgblist
 
-def genclassColorCondlist(filename, numbaskets, isuniq=False):
+def genclassColorCondlist(filename, numbaskets, nomin=False, nomax=False, isuniq=False):
     """Generate a list of triples in the format(classname, condition, color)
        @inputs: filename(str): the ascii map filename without path and postfix,
                               which is a .txt file locates in ./Data directory.
@@ -162,7 +164,7 @@ def genclassColorCondlist(filename, numbaskets, isuniq=False):
     if (numbaskets < 2):
         print "Error: number of baskets is less than 2."
         exit(1)
-    quantilelist, isuniq = getQuantileList("./Data/%s.txt" % filename, numbaskets, isuniq)
+    quantilelist, isuniq = getQuantileList("./Data/%s.txt" % filename, numbaskets, nomin, nomax, isuniq)
     if isuniq:
         numbaskets = len(quantilelist)
         classColorCondlist = []
@@ -196,7 +198,7 @@ def main():
     if (numbaskets < 2):
         print "Error: number of baskets is less than 2."
         exit(1)
-    classColorCondlist = genclassColorCondlist(filename, numbaskets)
+    classColorCondlist = genclassColorCondlist(filename, numbaskets, nomin=True)
     genSimMap("26916", classColorCondlist, filename)
 
     # print getRGBList(5)

@@ -22,7 +22,7 @@ def grassConfig(location='grass', mapset='model',
     os.environ['GISBASE'] = gisbase
     os.environ['GRASS_VERBOSE'] = '0'
     os.environ['GRASS_OVERWRITE'] = '1'
-    sys.pqath.append(os.path.join(gisbase, 'etc', 'python'))
+    sys.path.append(os.path.join(gisbase, 'etc', 'python'))
 
     global grass
     __import__('grass.script')
@@ -73,7 +73,7 @@ def export_asciimap(layername, nullval=-1, integer=False):
             raise RuntimeError('unable to export ascii map ' + layername)
 
 
-def publishSimMap(maptitle, site, url, description='',
+def publishSimMap(maptitle, site, url, description='', nomin=False, nomax=False,
                   numcolors=NUMCOLORS, regioncode=CHICAGOREGIONCODE):
     """Publish the raster map .tif to the website.
        @ inputs: maptitle (str) the output map name
@@ -87,7 +87,7 @@ def publishSimMap(maptitle, site, url, description='',
     simmap  = 'Data/%s.tif' % maptitle
     mapfile = 'Outputs/%s.map' % maptitle
 
-    classColorCondlist = genclassColorCondlist(maptitle, numcolors)
+    classColorCondlist = genclassColorCondlist(maptitle, numcolors, nomin, nomax)
     genSimMap(regioncode, classColorCondlist, maptitle)
     
     
@@ -97,7 +97,7 @@ def publishSimMap(maptitle, site, url, description='',
     site.updateSimMap(popattrurl, title=maptitle, description=description)
 
 
-def exportAllforms(maplayer, valuetype='Float64', description='', enlarge=True):
+def exportAllforms(maplayer, valuetype='Float64', description='', enlarge=True, nomin=False, nomax=False):
     """ Float64 has the most accurate values. However, Float64
         is slow in processing the map to show in browser. 'UInt16' 
         is the best.
@@ -109,7 +109,7 @@ def exportAllforms(maplayer, valuetype='Float64', description='', enlarge=True):
         export_asciimap(maplayer)
         
     #wrap file into details folder
-    publishSimMap(maplayer, site, resultsdir+"/details", description)
+    publishSimMap(maplayer, site, resultsdir+"/details", description, nomin, nomax)
 
 ################## Fucntions for centers and travel time maps #################
 ######  Required files in GRASS: otherroadsBase, landcover ########
@@ -329,11 +329,11 @@ def gencentersAttmaps(empcenters, popcenters):
     # pop/emp centers attractive maps require landTravelTime30 and intTravelTime30
     runlog.p("--generate otherroads, the raster form of roadnetwork......")
     genotherroads()
-    exportAllforms('otherroads', 'UInt16') # otherroads have road class 1-6
+    exportAllforms('otherroads', 'UInt16', nomin=True) # otherroads have road class 1-6
     
     runlog.p("--generate interstatesBase, the interstates roads (class 1) extracted from roadnetwork......")
     geninterstatesBaseAndinterstates()
-    exportAllforms('interstates', 'UInt16')
+    exportAllforms('interstates', 'UInt16', nomin=True)
     
     runlog.p("--generate cross, the intersection of interstates and ramps......")
     gencross()
@@ -352,20 +352,20 @@ def gencentersAttmaps(empcenters, popcenters):
     runlog.p("--generate population centers attractive map using cross, "
                "overlandTravelTime30, intTravelTime30, and population centers......")
     os.system("python bin/cities.py -p total_pop -n pop -m grav popcentersBase > Log/popatt.log")
-    exportAllforms("pop_att", 'UInt16')
+    exportAllforms("pop_att", 'UInt16', nomin=True)
 
     runlog.p("--generate population centers travelcost map......")
     os.system("python bin/cities.py -p total_pop -n pop -m cost popcentersBase > Log/popcost.log")
-    exportAllforms("pop_cost", 'UInt16')
+    exportAllforms("pop_cost", 'UInt16', nomax=True)
 
     runlog.p("--generate employment centers attractive map using cross, "
                "overlandTravelTime30, intTravelTime30, and employment centers......")
     os.system("python bin/cities.py -p total_emp -n emp -m grav empcentersBase > Log/empatt.log")
-    exportAllforms("emp_att", 'UInt16')
+    exportAllforms("emp_att", 'UInt16', nomin=True)
 
     runlog.p("--generate employment centers travelcost map......")
     os.system("python bin/cities.py -p total_emp -n emp -m cost empcentersBase > Log/empcost.log")
-    exportAllforms("emp_cost", 'UInt16')
+    exportAllforms("emp_cost", 'UInt16', nomax=True)
 
 def genOtherAttmaps():
     # print "--generate staterd, county, road, and ramp attractiveness..."
@@ -380,7 +380,7 @@ def genOtherAttmaps():
     runlog.p("--generate transport attraction map using statered_cost, "
                "county_cost, road_cost, ramp_cost, and intersect_cost......")
     transportAttraction()
-    exportAllforms("transport_att", 'UInt16')
+    exportAllforms("transport_att", 'UInt16', nomin=True)
     
     runlog.p("--generate water travelcost map......")
     bufferAttraction("water_cost", watercondstr())
@@ -392,7 +392,7 @@ def genOtherAttmaps():
 
     runlog.p("--generate slope travelcost map......")
     genslopeCost()
-    exportAllforms("slope_cost", 'UInt16')
+    exportAllforms("slope_cost", 'UInt16', nomin=True)
 
 
 def genProbmaps():
@@ -400,13 +400,13 @@ def genProbmaps():
                "and output probmap_com_percentage, where all values are 0.01 of probmap_com......")
     genProbmap(COMSCORELIST, COSTSCORELIST, 'probmap_com', 10000000)# probcom has -07 values
     exportRaster('probmap_com', 'Float32')
-    exportAllforms('probmap_com_percentage') 
+    exportAllforms('probmap_com_percentage', nomin=True) 
 
     runlog.p("--generate probmap_res...the probabiltiy map for residential developement, "
              "and output probmap_res_percentage, where all values are 0.01 of probmap_res......")
     genProbmap(RESSCORELIST, COSTSCORELIST, 'probmap_res', 100000)
     exportRaster('probmap_res', 'Float32')
-    exportAllforms('probmap_res_percentage')
+    exportAllforms('probmap_res_percentage', nomin=True)
 
 
 def runMulticostModel(resultsurl, website, log):

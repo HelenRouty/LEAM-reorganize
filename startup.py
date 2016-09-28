@@ -414,8 +414,8 @@ def processDriverSets(driver):
 def cacheProbmaps(driverurl):
     runlog.p("--cache probamps......")
     try:
-        os.system("zip Data/probmaps.zip Data/probmap_res.tif Data/probmap_com.tif")
-        site.putProbmapCache(driverurl)
+        os.system("zip -j Data/probmaps.zip Data/probmap_res.tif Data/probmap_com.tif")
+        site.putProbmapCache(driverurl, "Data/probmaps.zip")
     except Exception:
         runlog.warn("Failed caching probmaps")
 
@@ -448,19 +448,45 @@ def processProjectionSet(projection):
     return demandstr
 
 def publishResults(title, site, resultsdir):
- 
-
+     
     publishSimMap(title+"_change", site, resultsdir+"/results", 
-        '21 blue is residential change and 23 red is commeritial change')
+        '21 blue is residential change and 23 red is commeritial change', nomin=True)
     publishSimMap(title+"_summary", site, resultsdir+"/results",
-        'year 0 to year last with color blue to red') 
+        'year 0 to year last with color blue to red', nomin=True) 
     publishSimMap(title+"_ppcell", site, resultsdir+"/results",
-        'residential population change per cell')
+        'residential population change per cell', nomin=True)
     publishSimMap(title+"_empcell", site, resultsdir+"/results",
-        'commertial population change per cell') 
+        'commertial population change per cell', nomin=True) 
     publishSimMap(title+"_year", site, resultsdir+"/results",
-        'year that cell cell has been changed')
-
+        'year that cell cell has been changed', nomin=True)
+    
+    # Add nogrowth map or nogrowth_flooding map into the overlayer based on differnt uploaded driverset
+    maptitle1 = "sh_nogrowth" 
+    maptitle2 = "Area_prone_to_flooding_dissolved"
+    if os.path.exists("Inputs/%s" % maptitle2):
+        print "find flood map shape file"
+         # The same as zip nogrowth file using command line
+        os.system("zip -r ./Inputs/%s.zip ./Inputs/%s" % (maptitle2, maptitle2))
+    	simmap = "Inputs/%s.zip" % maptitle2 
+    	mapfile = "Outputs/%s.map" % maptitle1 
+    	url = resultsdir + "/results"    
+    	popattrurl = site.putSimMap("%s.zip" % maptitle2, "%s.map" % maptitle1, url,
+		simmap_file = open(simmap, "rb"),
+		mapfile_file = open(mapfile, "rb"))
+    	site.updateSimMap(popattrurl, title=maptitle2, description="nogrowth flooding map")
+    else:
+        #os.system("cd Inputs && zip sh_nogrowth.zip sh_nogrowth && cd ..")
+    	
+        os.system("zip -r ./Inputs/sh_nogrowth.zip ./Inputs/sh_nogrowth")
+	simmap = "Inputs/%s.zip" % maptitle1 
+    	mapfile = "Outputs/%s.map" % maptitle1
+    	url = resultsdir + "/results"    
+    	popattrurl = site.putSimMap("%s.zip" % maptitle1, "%s.map" % maptitle1, url,
+		simmap_file = open(simmap, "rb"),
+		mapfile_file = open(mapfile, "rb"))
+    	site.updateSimMap(popattrurl, title=maptitle1, description="nogrowth map")
+   
+  
     ##  Todo: change the result maps' names to be without "title"!
     # zip the results and publish to the website
     # check_call(['zip', 'model_results.zip', 'ppcell.gtif', 'hhcell.gtif',
@@ -503,7 +529,6 @@ def main():
     runlog.p('started at '+jobstart)
     
     # creat two folders
-    #site.createFolder("RunLog", resultsdir)
     site.createFolder("Details", resultsdir)
     site.createFolder("Results", resultsdir)
 
@@ -529,6 +554,13 @@ def main():
         publishResults(title, site, resultsdir+"/results")
 
 if __name__ == "__main__":
+    """
+    #Code below is used to test publishReults function to add nogrowth map
+    title = "scenario160923floodnodensity"
+    resultsdir = "http://portal.leam.illinois.edu/stockholm2016/luc/scenarios/scenario160923floodnodensity"
+    site = LEAMsite(resultsdir, sys.argv[1], sys.argv[2])
+    publishResults(title, site, resultsdir)
+    """
     try:
         main()
     # Uncaught or re-raised error from main
@@ -549,4 +581,5 @@ if __name__ == "__main__":
     runlog.h('Scenario Completed Successfully at %s.' % time.asctime())
     os.system('rm -r *') # remove all files to save space. Otherwise, one scenario
                       # will take 20% /dev/dm-0 space. Use 'df' to check space use.
-    sys.exit(0)    
+    sys.exit(0) 
+     
