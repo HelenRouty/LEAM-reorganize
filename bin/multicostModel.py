@@ -7,6 +7,7 @@ from glob import iglob
 from leamsite import LEAMsite
 from parameters import *
 from genSimMap import genSimMap, genclassColorCondlist
+from genSimMap_results import genSimMap_results, genclassColorCondlist_results
 from weblog import RunLog
 
 """Organized from original LEAM attrmap.make and probmap.make.
@@ -74,7 +75,7 @@ def export_asciimap(layername, nullval=-1, integer=False):
 
 
 def publishSimMap(maptitle, site, url, description='', nomin=False, nomax=False,
-                  numcolors=NUMCOLORS, regioncode=CHICAGOREGIONCODE):
+                  numcolors=NUMCOLORS, regioncode=CHICAGOREGIONCODE, flag=0):
     """Publish the raster map .tif to the website.
        @ inputs: maptitle (str) the output map name
                  description (str) the description to be shown for each map on the website
@@ -86,10 +87,13 @@ def publishSimMap(maptitle, site, url, description='', nomin=False, nomax=False,
     """
     simmap  = 'Data/%s.tif' % maptitle
     mapfile = 'Outputs/%s.map' % maptitle
-
-    classColorCondlist = genclassColorCondlist(maptitle, numcolors, nomin, nomax)
-    genSimMap(regioncode, classColorCondlist, maptitle)
     
+    if flag == 0:
+        classColorCondlist = genclassColorCondlist(maptitle, numcolors, nomin, nomax)
+        genSimMap(regioncode, classColorCondlist, maptitle)
+    else:
+        classColorCondlist_results = genclassColorCondlist_results(maptitle, numcolors, nomin, nomax)
+        genSimMap_results(regioncode, classColorCondlist_results, maptitle)
     
     popattrurl = site.putSimMap("%s.tif" % maptitle, "%s.map" % maptitle, url,
         simmap_file=open(simmap, 'rb'), 

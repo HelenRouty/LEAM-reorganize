@@ -156,7 +156,7 @@ def get_rasters(url, downloaddir='./Inputs'):
     return rasters
 
 
-def get_shapefile(url, downloaddir='./Inputs'):
+def get_shapefile(url, downloaddir='./Inputs', flag = 0):
     """Download zipped shape file from the url to downloaddir
        @output: name of the shapefile with downloaddir and unzipped folder
     """
@@ -180,8 +180,17 @@ def get_shapefile(url, downloaddir='./Inputs'):
             continue
         else:
             fname = os.path.basename(zname)
-            shapefolder = fname.split('.')[0]
+           
+            #shapefolder = fname.split('.')[0]
+            #print "test shapefolder" + shapefolder
+            if flag == 0:
+                shapefolder = fname.split('.')[0]
+                print "test shapefolder" + shapefolder
+            else:
+                shapefolder = "nogrowth"
+                print "test shapefolder" + shapefolder
             fname = '%s/%s/%s' %(downloaddir, shapefolder, fname)
+
             if fname.endswith('.shp'):
                 shapefile = fname
             createdirectorynotexist(fname)
@@ -191,6 +200,11 @@ def get_shapefile(url, downloaddir='./Inputs'):
 
     if not shapefile:
         raise RuntimeError('%s did not contain a shapefile' % url)
+    
+    # print shapefile name
+    print "sharefolder is " + shapefolder
+    print "fname is " + fname 
+    print "shapefile is" + shapefile 
     return shapefile
 
 
@@ -327,7 +341,7 @@ def get_nogrowthmaps(urllist):
 
     shplist = []
     for url in urllist:
-        layername = get_shapefile(url)
+        layername = get_shapefile(url, flag=1)
         layername = os.path.basename(layername)
         shplist.append('"%s"' % layername)
 
@@ -448,45 +462,31 @@ def processProjectionSet(projection):
     return demandstr
 
 def publishResults(title, site, resultsdir):
-     
+    # @flag: denotes to run genSimMap.py or genSimMap_results.py      
     publishSimMap(title+"_change", site, resultsdir+"/results", 
-        '21 blue is residential change and 23 red is commeritial change', nomin=True)
-    publishSimMap(title+"_summary", site, resultsdir+"/results",
+        '21 blue is residential change and 23 red is commeritial change', nomin=True, flag=1)
+    publishSimMap(title+"_summary", site, resultsdir+"/details",
         'year 0 to year last with color blue to red', nomin=True) 
-    publishSimMap(title+"_ppcell", site, resultsdir+"/results",
+    publishSimMap(title+"_ppcell", site, resultsdir+"/details",
         'residential population change per cell', nomin=True)
-    publishSimMap(title+"_empcell", site, resultsdir+"/results",
+    publishSimMap(title+"_empcell", site, resultsdir+"/details",
         'commertial population change per cell', nomin=True) 
     publishSimMap(title+"_year", site, resultsdir+"/results",
-        'year that cell cell has been changed', nomin=True)
+        'year that cell cell has been changed', nomin=True, flag=1)
     
-    # Add nogrowth map or nogrowth_flooding map into the overlayer based on differnt uploaded driverset
-    maptitle1 = "sh_nogrowth" 
-    maptitle2 = "Area_prone_to_flooding_dissolved"
-    if os.path.exists("Inputs/%s" % maptitle2):
-        print "find flood map shape file"
-         # The same as zip nogrowth file using command line
-        os.system("zip -r ./Inputs/%s.zip ./Inputs/%s" % (maptitle2, maptitle2))
-    	simmap = "Inputs/%s.zip" % maptitle2 
-    	mapfile = "Outputs/%s.map" % maptitle1 
-    	url = resultsdir + "/results"    
-    	popattrurl = site.putSimMap("%s.zip" % maptitle2, "%s.map" % maptitle1, url,
-		simmap_file = open(simmap, "rb"),
-		mapfile_file = open(mapfile, "rb"))
-    	site.updateSimMap(popattrurl, title=maptitle2, description="nogrowth flooding map")
-    else:
-        #os.system("cd Inputs && zip sh_nogrowth.zip sh_nogrowth && cd ..")
-    	
-        os.system("zip -r ./Inputs/sh_nogrowth.zip ./Inputs/sh_nogrowth")
-	simmap = "Inputs/%s.zip" % maptitle1 
-    	mapfile = "Outputs/%s.map" % maptitle1
-    	url = resultsdir + "/results"    
-    	popattrurl = site.putSimMap("%s.zip" % maptitle1, "%s.map" % maptitle1, url,
-		simmap_file = open(simmap, "rb"),
-		mapfile_file = open(mapfile, "rb"))
-    	site.updateSimMap(popattrurl, title=maptitle1, description="nogrowth map")
+    # Add nogrowth map to the results layers on Google API
+    simmapTitle = "nogrowth"
+    mapTitle = "sh_nogrowth"
+    os.system("zip -r ./Inputs/%s.zip ./Inputs/%s" % (simmapTitle, simmapTitle))
+    simmap = "Inputs/%s.zip" % simmapTitle 
+    mapfile = "Outputs/%s.map" % mapTitle
+    url = resultsdir + "/results"    
+    popattrurl = site.putSimMap("%s.zip" % simmapTitle, "%s.map" % mapTitle, url,
+       	simmap_file = open(simmap, "rb"),
+	mapfile_file = open(mapfile, "rb"))
+    site.updateSimMap(popattrurl, title=simmapTitle, description="nogrowth map")   	
+     
    
-  
     ##  Todo: change the result maps' names to be without "title"!
     # zip the results and publish to the website
     # check_call(['zip', 'model_results.zip', 'ppcell.gtif', 'hhcell.gtif',
@@ -554,12 +554,13 @@ def main():
         publishResults(title, site, resultsdir+"/results")
 
 if __name__ == "__main__":
-    """
+    """ 
     #Code below is used to test publishReults function to add nogrowth map
-    title = "scenario160923floodnodensity"
-    resultsdir = "http://portal.leam.illinois.edu/stockholm2016/luc/scenarios/scenario160923floodnodensity"
+    title = "scenario160924nodensity"
+    resultsdir = "http://portal.leam.illinois.edu/stockholm2016/luc/scenarios/scenario160924nodensity"
     site = LEAMsite(resultsdir, sys.argv[1], sys.argv[2])
     publishResults(title, site, resultsdir)
+    
     """
     try:
         main()
@@ -582,4 +583,4 @@ if __name__ == "__main__":
     os.system('rm -r *') # remove all files to save space. Otherwise, one scenario
                       # will take 20% /dev/dm-0 space. Use 'df' to check space use.
     sys.exit(0) 
-     
+   
